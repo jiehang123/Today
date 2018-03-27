@@ -1,0 +1,119 @@
+﻿Tomcat中的默认连接简单扯一扯，这个默认连接器已经被更高效的连接器取代了，但它还是有学习的价值。
+HttpConnector实现了Connector, Lifecycle, Runnable接口
+先看他的start方法：
+public void start() throws LifecycleException {
+	// Validate and update our current state
+	if (started)
+		throw new LifecycleException
+			(sm.getString("httpConnector.alreadyStarted"));
+	threadName = "HttpConnector[" + port + "]";
+	lifecycle.fireLifecycleEvent(START_EVENT, null);
+	started = true;
+
+	// Start our background thread
+	threadStart();	//因为它继承了Runnable，这里会创建并且启动一个线程，看它的run方法。
+
+	// Create the specified minimum number of processors
+	while (curProcessors < minProcessors) {
+		if ((maxProcessors > 0) && (curProcessors >= maxProcessors))
+			break;
+		HttpProcessor processor = newProcessor();
+		//recycle会将用完的process重新压入栈中： processors.push(processor); processors是一个用stack存放的processor池
+		recycle(processor);	
+	}
+}
+
+HttpConnector中的run方法：
+public void run() {
+	// 循环会不断执行，直到接收到一个关闭命令
+	while (!stopped) {
+		// Accept the next incoming connection from the server socket
+		Socket socket = null;
+		try {
+			// serverSocket会一直处于等待状态，直到有请求过来被它接收到。
+			socket = serverSocket.accept();
+			if (connectionTimeout > 0)
+				socket.setSoTimeout(connectionTimeout);
+			socket.setTcpNoDelay(tcpNoDelay);
+		} catch (AccessControlException ace) {
+			log("socket accept security exception", ace);
+			continue;
+		} catch (IOException e) {
+			try {
+				// If reopening fails, exit
+				synchronized (threadSync) {
+					if (started && !stopped)
+						log("accept error: ", e);
+					if (!stopped) {
+						serverSocket.close();
+						// 如果接收请求时发生IOException，就关闭该Socket，再重建一个Socket.
+						serverSocket = open();
+					}
+				}
+			} catch (Exception ioe) {
+				......
+				break;
+			}
+			continue;
+		}
+		
+		//获得一个processor实例
+		HttpProcessor processor = createProcessor();
+		if (processor == null) {
+			try {
+				log(sm.getString("httpConnector.noProcessor"));
+				socket.close();
+			} catch (IOException e) {
+				;
+			}
+			continue;
+		}
+		//调用processor中的方法去处理请求，这个方法会在HttpProcessor中详细讲解。
+		processor.assign(socket);
+	}
+	// Notify the threadStop() method that we have shut ourselves down
+	synchronized (threadSync) {
+		threadSync.notifyAll();
+	}
+}
+
+private HttpProcessor createProcessor() {
+	//因为start方法中会push processor去创建processor池，但是处理请求的线程会调用这个方法从线程中获取processor，所以这里必须为processor池加锁。
+	synchronized (processors) {
+		if (processors.size() > 0) {
+			// if (debug >= 2)
+			// log("createProcessor: Reusing existing processor");
+			return ((HttpProcessor) processors.pop());
+		}
+		if ((maxProcessors > 0) && (curProcessors < maxProcessors)) {
+			// if (debug >= 2)
+			// log("createProcessor: Creating new processor");
+			return (newProcessor());
+		} else {
+			if (maxProcessors < 0) {
+				// if (debug >= 2)
+				// log("createProcessor: Creating new processor");
+				return (newProcessor());
+			} else {
+				// if (debug >= 2)
+				// log("createProcessor: Cannot create new processor");
+				return (null);
+			}
+		}
+	}
+}
+
+newProcessor会创建一个Processor对象并启动它(processor也继承了Runnable，后面会讲解，这里先跳过)
+private HttpProcessor newProcessor() {
+	HttpProcessor processor = new HttpProcessor(this, curProcessors++);
+	if (processor instanceof Lifecycle) {
+		try {
+			((Lifecycle) processor).start();
+		} catch (LifecycleException e) {
+			log("newProcessor", e);
+			return (null);
+		}
+	}
+	created.addElement(processor);
+	return (processor);
+}

@@ -1,0 +1,65 @@
+﻿Tomcat中Context容器与管道和阀的机制讲解
+StandardContext 继承了ContainerBase抽象类，实现了Context接口
+其中ContainerBase抽象类实现了Container, Lifecycle, Pipeline接口，tomcat中所有的容器都继承了这个抽象类。
+在ContainerBase中有几个重要的属性：
+protected Pipeline pipeline = new StandardPipeline(this);
+protected HashMap children = new HashMap();
+protected LifecycleSupport lifecycle = new LifecycleSupport(this);
+protected Container parent = null;
+protected ClassLoader parentClassLoader = null;
+
+pipeline就是创建的管道对象
+children就是存放下级容器的Map
+parent表示当前容器的上级容器。
+parentClassLoader表示上级容器的类加载器，tomcat中类加载机制与jvm中类加载机制不同（这里都不讲，会在另一篇博客里面介绍tomcat和jvm的类加载机制）。
+
+tomcat是通过管道和阀的机制来对servlet进行加载的，先扯一下管道和阀。
+管道好比一个通道，阀就是这个通道上面的一扇扇门（很形象但不恰当）。
+
+每个管道都有一个基本阀（最后执行基本阀），然后可以通过addValve来添加阀（用数组存放需要添加的阀，基本阀不会放在此数组中）
+
+当创建一个StandardContext对象的时候，会先创建一个管道对象（上面属性讲了），并把Context对象自身传给管道。
+StandardPipeline是tomcat中管道接口的标准实现，继承了Pipeline, Contained, Lifecycle这三个接口
+StandardPipeline中的构造函数如下：
+public StandardPipeline(Container container) {
+	super();
+	setContainer(container);	//这里设置传进来的容器对象，就是 this.container = container
+}
+StandardPipeline中的invoke方法如下：
+public void invoke(Request request, Response response) throws IOException, ServletException {
+	(new StandardPipelineValveContext()).invokeNext(request, response);
+}
+pipeline里会创建了一个内部类StandardPipelineValveContext，用于管道调阀，其中的方法invokeNext，实现如下：
+public void invokeNext(Request request, Response response) throws IOException, ServletException {
+	int subscript = stage; // stage is 0 in first.
+	stage = stage + 1;
+
+	// Invoke the requested Valve for the current request thread
+	if (subscript < valves.length) {
+		valves[subscript].invoke(request, response, this);
+	} else if ((subscript == valves.length) && (basic != null)) {
+		basic.invoke(request, response, this);
+	} else {
+		throw new ServletException
+			(sm.getString("standardPipeline.noValve"));
+	}
+
+}
+这里可以看出管道会依次调用数组中的阀： valves[subscript].invoke(request, response, this); 传入this这个内部类作为参数是为了在阀中继续调用invokeNext方法，实现让一个阀去调用下一个阀的操作。
+阀中的invoke方法签名如下：
+public void invoke(Request request, Response response, ValveContext valveContext);
+
+StandardContext中的构造函数如下：
+public StandardContext() {
+	super();
+	pipeline.setBasic(new StandardContextValve());	
+}
+StandardContextValve是Context的基本阀，它继承了ValveBase（ValveBase实现了Contained, Valve接口）。阀都会实现Valve接口，但是可以选择是否实现Contained。
+
+简单来说tomcat就是通过容器中的invoke来调用其管道中的阀，阀会通过invokeNext继续调用下一个阀，直到调用完所有添加的阀，最后会调用基本阀并在其中调用下级容器。
+StandardContext中的invoke方法实现是：super.invoke(request, response);
+
+
+假设main方法执行如下代码：
+StandardContext context = new StandardContext();  //创建context对象，创建pipeline对象，并向pipeline中设置基本阀。
+context.invoke(null, null)； //会直接调用super.invoke(null, null)，super就是指pipeline，pipeline会创建内部类，然后开始依次调用阀。
