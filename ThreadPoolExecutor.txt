@@ -1,0 +1,33 @@
+﻿深入理解java线程池之ThreadPoolExecutor类详解
+为了提高程序效率，我们经常会使用线程，如果在使用的时候创建，用完后就销魂，这样实现起来很简单，
+但如果并发线程很多，频繁的创建和销毁线程会浪费很多时间和资源。
+为了避免这种损耗，java中使用线程池来管理线程，池初始化时会创建一定数量的线程，需要的时候从中获取，用完之后不会销毁，而是放回池中。
+本文以ThreadPoolExecutor为例，对源码进行解读。
+java.uitl.concurrent.ThreadPoolExecutor
+先看其中的一些重要属性：
+private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
+private static final int RUNNING    = -1 << COUNT_BITS;
+private static final int SHUTDOWN   =  0 << COUNT_BITS;
+private static final int STOP       =  1 << COUNT_BITS;
+private static final int TIDYING    =  2 << COUNT_BITS;
+private static final int TERMINATED =  3 << COUNT_BITS;
+
+private final ReentrantLock mainLock = new ReentrantLock();	//线程池的状态锁，
+private volatile int corePoolSize;		//线程池大小
+private volatile int maximumPoolSize;	//线程池最大能容忍的线程数量
+private volatile int  poolSize;       	//线程池中当前的线程数
+private int largestPoolSize;   			//记录线程池中曾经出现过的最大线程数
+
+private volatile RejectedExecutionHandler handler;	//任务拒绝策略
+private volatile long keepAliveTime;
+
+ctl变量保证了操作具有原子性，他保存了所有有效线程的数量和他们的状态。
+RUNNING:  Accept new tasks and process queued tasks
+SHUTDOWN: Don't accept new tasks, but process queued tasks
+STOP:     Don't accept new tasks, don't process queued tasks,
+          and interrupt in-progress tasks
+TIDYING:  All tasks have terminated, workerCount is zero,
+          the thread transitioning to state TIDYING
+          will run the terminated() hook method
+TERMINATED: terminated() has completed
+
