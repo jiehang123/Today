@@ -68,7 +68,7 @@ TimeUnit是keppAliveTime的时间单位，可以为TimeUnit.DAYS;TimeUnit.HOURS;
 BlockingQueue作为存放任务的队列接口，一般有如下几种实现：
 	ArrayBlockingQueue;		//有界队列
 	LinkedBlockingQueue;	//无边界队列，没有空闲核心线程时，进来的任务都会被塞到这里，如果这时设置corePoolSize=maximumPoolSize=1;可以保证任务由一个线程串行处理。
-	SynchronousQueue;		//无容量的阻塞队列，使用时通常会设置maximumPoolSize=Integer.MAX_VALUE;keepAliveTime=60s;这样新进来的任务都会创建线程去处理。
+	SynchronousQueue;		//一种阻塞队列，其中每个插入操作必须等待另一个线程的对应移除操作，反之亦然。使用时通常会设置maximumPoolSize=Integer.MAX_VALUE;keepAliveTime=60s;这样新进来的任务都会创建线程去处理。
 	DelayedWorkQueue;		//无界延迟阻塞队列
 ThreadFactory 线程工厂，用来创建线程，默认调用Executors.defaultThreadFactory();
 RejectedExecutionHandler表示当拒绝处理任务时的策略，有如下几种方式；
