@@ -1,5 +1,5 @@
-﻿本文主要讲解一下连接池的实现方式，以BasicDataSource类为例，对源码进行简单分析。
-在讲解连接池之前，需要掌握池的一些基本概念和使用方式，这里我不讲，下面用到的时候我会解释一些，有兴趣的同学可以查看commons-pool2 里面的源码。
+本文主要讲解一下连接池的实现方式，以BasicDataSource类为例，对源码进行简单分析。
+在讲解连接池之前，需要掌握池的一些基本概念和使用方式，这里我不讲，下面用到的时候我会解释一些，有兴趣的同学可以查看commons-pool2里面的源码。
 
 我们知道，操作数据库的一般步骤如下：
 1.注册驱动
@@ -232,11 +232,10 @@ public Connection getConnection() throws SQLException {
 注意：这里获取到的是一个池化连接对象，即：PoolableConnection，不是JDBC中的Connection
 这里我又有点疑问了，为什么不直接返回这个池化对象呢？还需要再搞一搞了再返回呢？ new PoolGuardConnectionWrapper<>(conn) //TODO 还有待研究
 
-从连接池中获取连接的操作过程已经讲解完了
+从连接池中获取连接的过程已经全部分析完了
 最后我们用完connection之后需要close()
 这里close不是真正的关闭连接，而是将用完的连接放回到连接池中，以便其他线程继续使用，
-
-PoolableConnection.close()中会调用pool.returnObject(this)
+PoolableConnection.close()中会调用 pool.returnObject(this)将该connection返回到线程池中。
 
 
 
