@@ -164,10 +164,10 @@ return new DriverConnectionFactory(driver, url, connectionProperties);
 
 poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
 这里会用上面的连接工厂去创建一个池化连接工厂，这个方法里面就是一个构造函数，然后设置一堆乱七八糟的属性，这里不贴源码了。
-注意：池的使用方式在这里我们不纠结，不太懂的先看看本文最下面demo了解一下就好了。
+注意：池的使用方式在这里我们不纠结，不太懂的先看看本文最下面的demo了解一下就好了。
 池化连接工厂实现了PooledObjectFactory接口，重写了makeObject等方法，他的作用暂时可以理解为产生池化对象（这里的池化对象就是池化连接）。
 
-使用池化对象工厂创建池 createConnectionPool(poolableConnectionFactory) 这个方法的源码我们需要看一看：
+使用池化对象工厂创建连接池 createConnectionPool(poolableConnectionFactory) 这个方法的源码我们需要看一看：
 protected void createConnectionPool(final PoolableConnectionFactory factory) {
 	// Create an object pool to contain our active connections
 	final GenericObjectPoolConfig config = new GenericObjectPoolConfig();
@@ -194,7 +194,7 @@ protected void createConnectionPool(final PoolableConnectionFactory factory) {
 }
 
 newDataSource = createDataSourceInstance(); 
-上面我们已经把连接池创建好了，接下来就是就是创建一个包含该连接池的数据源了，看源码：
+上面我们已经把连接池创建好了，接下来就是创建一个包含该连接池的数据源了，看源码：
 protected DataSource createDataSourceInstance() throws SQLException {
 	final PoolingDataSource<PoolableConnection> pds = new PoolingDataSource<>(connectionPool);
 	pds.setAccessToUnderlyingConnectionAllowed(isAccessToUnderlyingConnectionAllowed());
@@ -204,7 +204,7 @@ protected DataSource createDataSourceInstance() throws SQLException {
 这里我有点不解，为啥还要创建一个dataSource呢，不直接用basicDataSource呢？ //TODO 不知道，待我研究一下，这里先不管。
 然后将这个创建的dataSource返回。
 
-createDataSource()这个方法就讲完了，然后我们再回到最初的起点createDataSource().getConnection();
+createDataSource()这个方法到这里基本就讲完了，然后我们再回到最初的起点createDataSource().getConnection();
 紧接着调用的getConnection()，就是PoolingDataSource.getConnection() 看它的源码：
 @Override
 public Connection getConnection() throws SQLException {
@@ -229,15 +229,14 @@ public Connection getConnection() throws SQLException {
 	}
 }
 这里就很简单了，从连接池中获取一个对象，下面的demo中可以找到一样的代码，
-注意：这里获取到的是一个池化连接对象，即：PoolableConnection，不是JDBC中的Connection
+注意：这里获取到的是一个池化连接对象，即：PoolableConnection，不是JDBC中直接得到的那个Connection，但是他们的作用是一样的，可以理解为这个池化连接对传统的Connection进行了一下包装吧。
 这里我又有点疑问了，为什么不直接返回这个池化对象呢？还需要再搞一搞了再返回呢？ new PoolGuardConnectionWrapper<>(conn) //TODO 还有待研究
 
-从连接池中获取连接的过程已经全部分析完了
-最后我们用完connection之后需要close()
+我们在用完connection之后需要close()
 这里close不是真正的关闭连接，而是将用完的连接放回到连接池中，以便其他线程继续使用，
 PoolableConnection.close()中会调用 pool.returnObject(this)将该connection返回到线程池中。
 
-这里简单总结一下createDataSource()这个核心方法的重要步骤：
+从连接池中获取连接的过程已经全部分析完了，这里简单总结一下createDataSource()这个核心方法的重要步骤：
 	1、检查数据源是否关闭或者是否创建完成，如果关闭了就抛异常，如果已经创建完成就直接返回。
 	2、调用createConnectionFactory()创建JDBC连接工厂driverConnectionFactory，这个工厂使用数据库驱动来创建最底层的JDBC连接。
 	3、调用createConnectionPool()创建数据源使用的连接池，连接池顾名思义就是缓存JDBC连接的地方。
@@ -245,8 +244,8 @@ PoolableConnection.close()中会调用 pool.returnObject(this)将该connection�
 	5、调用createPoolableConnectionFactory创建PoolableConnection的工厂，这个工厂使用上述driverConnectionFactory来创建底层JDBC连接，
 	   然后包装出一个PoolableConnection，这个PoolableConnection与连接池设置了一对多的关系，也就是说，连接池中存在多个PoolableConnection，
 	   每个PoolableConnection都关联同一个连接池，这样的好处是便于PoolableConnection的close方法的行为。
-	6、调用createDataSourceInstance()创建内部数据源
-	7、为连接池中添加PoolableConnection
+	6、调用createDataSourceInstance()创建内部数据源。
+	7、为连接池中添加PoolableConnection。
 
 
 
