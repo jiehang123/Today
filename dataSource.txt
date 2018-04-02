@@ -1,0 +1,312 @@
+﻿本文主要讲解一下连接池的实现方式，以BasicDataSource类为例，对源码进行简单分析。
+在讲解连接池之前，需要掌握池的一些基本概念和使用方式，这里我不讲，下面用到的时候我会解释一些，有兴趣的同学可以查看commons-pool2 里面的源码。
+
+我们知道，操作数据库的一般步骤如下：
+1.注册驱动
+2.建立连接
+3.创建执行sql语句的对象
+4.执行语句
+5.处理执行结果
+6.释放资源。
+连接池的作用就是对上面部分操作的封装和回收再利用。
+数据源这个概念很抽象，根据源码我觉得可以简单理解为： 数据源 = 数据驱动 + 配置 + 连接池 + 管理方式 + ...
+
+下面这个类非常简单，测试从数据源中获取连接：
+1.创建数据源对象，并设置一些属性
+2.开十个线程并将数据源传入线程类中
+3.每个线程都会从数据源中获取一个Connection
+4.使用完连接之后，关闭connection.
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import javax.sql.DataSource;
+import org.apache.commons.dbcp2.BasicDataSource;
+
+public class SimpleDataSourceTest2 {
+	public static void main(String[] args) {
+		BasicDataSource basicDataSource = new BasicDataSource();
+		basicDataSource.setDriverClassName("oracle.jdbc.driver.OracleDriver");
+		basicDataSource.setUrl("jdbc:oracle:thin:......");
+		basicDataSource.setUsername("123");
+		basicDataSource.setPassword("123");
+		basicDataSource.setMaxIdle(5);
+		basicDataSource.setMaxIdle(8);
+		basicDataSource.setMaxWaitMillis(3000);
+		for(int i=0; i<10; i++) {
+			new Thread(new MyRunnable(basicDataSource)).start();
+		}
+	}
+}
+class MyRunnable implements Runnable {
+	private DataSource dataSource;
+	MyRunnable(DataSource dataSource) {
+		this.dataSource = dataSource;
+	}
+	@Override
+	public void run() {
+		try {
+			Connection connection = dataSource.getConnection();
+			Statement statement = connection.createStatement();
+			statement.executeQuery("select '123' name from dual");
+			// do some things.
+			statement.close();
+			connection.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+}
+
+BasicDataSource实现了DataSource接口，getConnection()方法就是在接口中定义。
+首先看这一行语句basicDataSource.getConnection()的源码：
+@Override
+public Connection getConnection() throws SQLException {
+	if (Utils.IS_SECURITY_ENABLED) {
+		final PrivilegedExceptionAction<Connection> action = new PaGetConnection();
+		try {
+			return AccessController.doPrivileged(action);
+		} catch (final PrivilegedActionException e) {
+			final Throwable cause = e.getCause();
+			if (cause instanceof SQLException) {
+				throw (SQLException) cause;
+			}
+			throw new SQLException(e);
+		}
+	}
+	return createDataSource().getConnection();
+}
+
+if中一顿操作，先不用看，直接看createDataSource()的源码：
+protected DataSource createDataSource() throws SQLException {
+	if (closed) {
+		throw new SQLException("Data source is closed");
+	}
+
+	if (dataSource != null) {
+		return dataSource;
+	}
+	synchronized (this) {
+		if (dataSource != null) {
+			return dataSource;
+		}
+
+		jmxRegister();
+
+		// create factory which returns raw physical connections
+		final ConnectionFactory driverConnectionFactory = createConnectionFactory();
+
+		// Set up the poolable connection factory
+		boolean success = false;
+		PoolableConnectionFactory poolableConnectionFactory;
+		try {
+			poolableConnectionFactory = createPoolableConnectionFactory(
+					driverConnectionFactory);
+			poolableConnectionFactory.setPoolStatements(
+					poolPreparedStatements);
+			poolableConnectionFactory.setMaxOpenPreparedStatements(
+					maxOpenPreparedStatements);
+			success = true;
+		} catch (final SQLException se) {
+			throw se;
+		} catch (final RuntimeException rte) {
+			throw rte;
+		} catch (final Exception ex) {
+			throw new SQLException("Error creating connection factory", ex);
+		}
+
+		if (success) {
+			// create a pool for our connections
+			createConnectionPool(poolableConnectionFactory);
+		}
+
+		// Create the pooling data source to manage connections
+		DataSource newDataSource;
+		success = false;
+		try {
+			newDataSource = createDataSourceInstance();
+			newDataSource.setLogWriter(logWriter);
+			success = true;
+		} catch (final SQLException se) {
+			throw se;
+		} catch (final RuntimeException rte) {
+			throw rte;
+		} catch (final Exception ex) {
+			throw new SQLException("Error creating datasource", ex);
+		} finally {
+			if (!success) {
+				closeConnectionPool();
+			}
+		}
+
+		// If initialSize > 0, preload the pool
+		try {
+			for (int i = 0 ; i < initialSize ; i++) {
+				connectionPool.addObject();
+			}
+		} catch (final Exception e) {
+			closeConnectionPool();
+			throw new SQLException("Error preloading the connection pool", e);
+		}
+
+		// If timeBetweenEvictionRunsMillis > 0, start the pool's evictor task
+		startPoolMaintenance();
+
+		dataSource = newDataSource;
+		return dataSource;
+	}
+}
+
+这个方法非常重要，也稍微有点长，我们一段段分析：
+final ConnectionFactory driverConnectionFactory = createConnectionFactory();
+createConnectionFactory()这个方法就是创建JDBC连接工厂，源码不难，就用下面的一段代码总结一下这个方法：
+return new DriverConnectionFactory(driver, url, connectionProperties);
+
+poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
+这里会用上面的连接工厂去创建一个池化连接工厂，这个方法里面就是一个构造函数，然后设置一堆乱七八糟的属性，这里不贴源码了。
+注意：池的使用方式在这里我们不纠结，不太懂的先看看本文最下面demo了解一下就好了。
+池化连接工厂实现了PooledObjectFactory接口，重写了makeObject等方法，他的作用暂时可以理解为产生池化对象（这里的池化对象就是池化连接）。
+
+使用池化对象工厂创建池 createConnectionPool(poolableConnectionFactory) 这个方法的源码我们需要看一看：
+protected void createConnectionPool(final PoolableConnectionFactory factory) {
+	// Create an object pool to contain our active connections
+	final GenericObjectPoolConfig config = new GenericObjectPoolConfig();
+	updateJmxName(config);
+	config.setJmxEnabled(registeredJmxName != null);
+	//这行代码和下面demo中的一样，将池化对象工厂传入到池中，创建出一个连接池对象，下面设置属性的操作也和demo中类似。
+	final GenericObjectPool<PoolableConnection> gop = createObjectPool(factory, config, abandonedConfig);
+	gop.setMaxTotal(maxTotal);
+	gop.setMaxIdle(maxIdle);
+	gop.setMinIdle(minIdle);
+	gop.setMaxWaitMillis(maxWaitMillis);
+	gop.setTestOnCreate(testOnCreate);
+	gop.setTestOnBorrow(testOnBorrow);
+	gop.setTestOnReturn(testOnReturn);
+	gop.setNumTestsPerEvictionRun(numTestsPerEvictionRun);
+	gop.setMinEvictableIdleTimeMillis(minEvictableIdleTimeMillis);
+	gop.setSoftMinEvictableIdleTimeMillis(softMinEvictableIdleTimeMillis);
+	gop.setTestWhileIdle(testWhileIdle);
+	gop.setLifo(lifo);
+	gop.setSwallowedExceptionListener(new SwallowedExceptionLogger(log, logExpiredConnections));
+	gop.setEvictionPolicyClassName(evictionPolicyClassName);
+	factory.setPool(gop);	//这一行是反过来将池的引用再赋值给工厂中的池属性，这一行我还不知道是干嘛的，可能还比较重要，。
+	connectionPool = gop;
+}
+
+newDataSource = createDataSourceInstance(); 
+上面我们已经把连接池创建好了，接下来就是就是创建一个包含该连接池的数据源了，看源码：
+protected DataSource createDataSourceInstance() throws SQLException {
+	final PoolingDataSource<PoolableConnection> pds = new PoolingDataSource<>(connectionPool);
+	pds.setAccessToUnderlyingConnectionAllowed(isAccessToUnderlyingConnectionAllowed());
+	return pds;
+}
+这里又出来了一个对象PoolingDataSource，它也实现了DataSource接口，也重写了getConnection()方法，
+这里我有点不解，为啥还要创建一个dataSource呢，不直接用basicDataSource呢？ //TODO 不知道，待我研究一下，这里先不管。
+然后将这个创建的dataSource返回。
+
+createDataSource()这个方法就讲完了，然后我们再回到最初的起点createDataSource().getConnection();
+紧接着调用的getConnection()，就是PoolingDataSource.getConnection() 看它的源码：
+@Override
+public Connection getConnection() throws SQLException {
+	try {
+		final C conn = _pool.borrowObject();
+		if (conn == null) {
+			return null;
+		}
+		return new PoolGuardConnectionWrapper<>(conn);
+	} catch(final SQLException e) {
+		throw e;
+	} catch(final NoSuchElementException e) {
+		throw new SQLException("Cannot get a connection, pool error " + e.getMessage(), e);
+	} catch(final RuntimeException e) {
+		throw e;
+	} catch(final InterruptedException e) {
+		// Reset the interrupt status so it is visible to callers
+		Thread.currentThread().interrupt();
+		throw new SQLException("Cannot get a connection, general error", e);
+	} catch(final Exception e) {
+		throw new SQLException("Cannot get a connection, general error", e);
+	}
+}
+这里就很简单了，从连接池中获取一个对象，下面的demo中可以找到一样的代码，
+注意：这里获取到的是一个池化连接对象，即：PoolableConnection，不是JDBC中的Connection
+这里我又有点疑问了，为什么不直接返回这个池化对象呢？还需要再搞一搞了再返回呢？ new PoolGuardConnectionWrapper<>(conn) //TODO 还有待研究
+
+从连接池中获取连接的操作过程已经讲解完了
+最后我们用完connection之后需要close()
+这里close不是真正的关闭连接，而是将用完的连接放回到连接池中，以便其他线程继续使用，
+
+PoolableConnection.close()中会调用pool.returnObject(this)
+
+
+
+池的简单使用demo：
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.PooledObjectFactory;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+
+public class SimplePoolTest {
+	public static void main(String[] args) throws Exception {
+		GenericObjectPool<StringBuffer> pool = new GenericObjectPool<>(new PooledStringBufferFactory());
+		pool.setMaxIdle(8);				//池中可用的数量，默认就是 8
+		pool.setMaxWaitMillis(3000);	//从池中拿不到对象时，最长等待的时间，超时就报错。
+		for(int i=0; i<10; i++) {		//现在我要循环从池中获取10个对象。
+			StringBuffer sb = pool.borrowObject();	//从池中获取对象
+			System.out.println(sb);		//对获取到的对象进行操作。
+			//pool.returnObject(sb);	//将用完的对象还回到池中。如果这段代码不被注释，输出就是结果一，如果注释了，输出就是结果二
+		}
+		pool.close();	//关闭池
+	}
+}
+//这个是我根据需要创建的池化工厂，重写了池化对象工厂里定义的方法。
+class PooledStringBufferFactory implements PooledObjectFactory<StringBuffer> {
+	private static int i;
+	@Override
+	public PooledObject<StringBuffer> makeObject() throws Exception {
+		return new DefaultPooledObject<StringBuffer>(new StringBuffer("jiehang-").append(i++).append("--"));
+	}
+	@Override
+	public void destroyObject(PooledObject<StringBuffer> p) throws Exception {
+	}
+	@Override
+	public boolean validateObject(PooledObject<StringBuffer> p) {
+		return false;
+	}
+	@Override
+	public void activateObject(PooledObject<StringBuffer> p) throws Exception {
+	}
+	@Override
+	public void passivateObject(PooledObject<StringBuffer> p) throws Exception {
+	}
+}
+
+代码输出结果一：
+jiehang-0--
+jiehang-0--
+jiehang-0--
+jiehang-0--
+jiehang-0--
+jiehang-0--
+jiehang-0--
+jiehang-0--
+jiehang-0--
+jiehang-0--
+
+代码输出结果二：
+jiehang-0--
+jiehang-1--
+jiehang-2--
+jiehang-3--
+jiehang-4--
+jiehang-5--
+jiehang-6--
+jiehang-7--
+Exception in thread "main" java.util.NoSuchElementException: Timeout waiting for idle object
+	at org.apache.commons.pool2.impl.GenericObjectPool.borrowObject(GenericObjectPool.java:448)
+	at org.apache.commons.pool2.impl.GenericObjectPool.borrowObject(GenericObjectPool.java:362)
+	at com.jiehang.pool.simple.SimplePoolTest.main(SimplePoolTest.java:14)
+
+具体要池化什么对象，池不知道，所以我们需要自己实现PooledObjectFactory接口，用来创建或者激活我们需要的被池化对象，这里被池化对象就是StringBuffer
+在连接池中被池化对象是connection，不过这个connection是经过一些包装了的，不是JDBC里面直接拿到的那个connection，但是作用都是一样的。
+池的实现方式先不纠结，我们照着用就好了。
