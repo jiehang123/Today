@@ -189,7 +189,7 @@ protected void createConnectionPool(final PoolableConnectionFactory factory) {
 	gop.setLifo(lifo);
 	gop.setSwallowedExceptionListener(new SwallowedExceptionLogger(log, logExpiredConnections));
 	gop.setEvictionPolicyClassName(evictionPolicyClassName);
-	factory.setPool(gop);	//这一行是反过来将池的引用再赋值给工厂中的池属性，这一行我还不知道是干嘛的，可能还比较重要，。
+	factory.setPool(gop);
 	connectionPool = gop;
 }
 
@@ -236,6 +236,17 @@ public Connection getConnection() throws SQLException {
 最后我们用完connection之后需要close()
 这里close不是真正的关闭连接，而是将用完的连接放回到连接池中，以便其他线程继续使用，
 PoolableConnection.close()中会调用 pool.returnObject(this)将该connection返回到线程池中。
+
+这里简单总结一下createDataSource()这个核心方法的重要步骤：
+	1、检查数据源是否关闭或者是否创建完成，如果关闭了就抛异常，如果已经创建完成就直接返回。
+	2、调用createConnectionFactory()创建JDBC连接工厂driverConnectionFactory，这个工厂使用数据库驱动来创建最底层的JDBC连接。
+	3、调用createConnectionPool()创建数据源使用的连接池，连接池顾名思义就是缓存JDBC连接的地方。
+	4、如果需要就设置statement的缓存池，这个一般不需要设置。
+	5、调用createPoolableConnectionFactory创建PoolableConnection的工厂，这个工厂使用上述driverConnectionFactory来创建底层JDBC连接，
+	   然后包装出一个PoolableConnection，这个PoolableConnection与连接池设置了一对多的关系，也就是说，连接池中存在多个PoolableConnection，
+	   每个PoolableConnection都关联同一个连接池，这样的好处是便于PoolableConnection的close方法的行为。
+	6、调用createDataSourceInstance()创建内部数据源
+	7、为连接池中添加PoolableConnection
 
 
 
