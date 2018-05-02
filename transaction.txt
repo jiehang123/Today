@@ -1,0 +1,64 @@
+本文主题：数据库事务隔离级别与Spring对于事务的管理
+
+数据库事务的四个特性（ACID）：原子性Atomicity、一致性Consistency、隔离性Isolation、持久性Durability
+	原子性：指事务包含的所有操作要么全部成功，要么全部失败回滚
+	一致性：指事务必须使数据库从一个一致性状态变换到另一个一致性状态，也就是说一个事务执行之前和执行之后都必须处于一致性状态。例如：转账前后，总数保持一致，不会有任何变化。
+	隔离性：一个事务不能被其他的事务的操作所干扰，事务之间要相互隔离。这需要事务隔离级别来指定隔离性
+	持久性：事务一旦提交，那么对数据库中的数据的改变就是永久性的。
+
+数据的四种隔离级别：
+	Read uncommitted (读未提交)：最低级别，任何情况都无法保证。
+	Read committed (读已提交)：可避免脏读的发生，会产生不可重复读。
+	Repeatable read (可重复读)：可避免脏读、不可重复读的发生，会产生幻读。
+	Serializable (串行化)：可避免脏读、不可重复读、幻读的发生。
+
+以上四种隔离级别最高的是Serializable级别，最低的是Read uncommitted级别，级别越高，执行效率就越低。像Serializable这样的级别，就是以锁表的方式(类似于Java多线程中的锁)使得其他的线程只能在锁外等待，所以平时选用何种隔离级别应该根据实际情况。
+在MySQL数据库中，支持上面四种隔离级别，默认的为Repeatable read (可重复读)；而在Oracle数据库中，只支持Serializable (串行化)级别和Read committed (读已提交)这两种级别，其中默认的为Read committed级别。
+
+注意：设置数据库的隔离级别一定要是在开启事务之前！
+注意：隔离级别的设置只对当前链接有效。对于使用MySQL命令窗口而言，一个窗口就相当于一个链接，当前窗口设置的隔离级别只对当前窗口中的事务有效；对于JDBC操作数据库来说，一个Connection对象相当于一个链接，而对于Connection对象设置的隔离级别只对该Connection对象有效，与其他链接Connection对象无关。
+如果是使用JDBC对数据库的事务设置隔离级别的话，也应该是在调用Connection对象的setAutoCommit(false)方法之前。
+调用Connection对象的setTransactionIsolation(level)即可设置当前链接的隔离级别，参数level，可以使用Connection对象的静态变量：
+	TRANSACTION_NONE  				0 指示事务不受支持的常量。
+	TRANSACTION_READ_COMMITTED  	1 指示不可以发生脏读的常量；不可重复读和虚读可以发生。
+	TRANSACTION_READ_UNCOMMITTED	2 指示可以发生脏读、不可重复读和虚读的常量。
+	TRANSACTION_REPEATABLE_READ 	4 指示不可以发生脏读和不可重复读的常量；虚读可以发生。
+	TRANSACTION_SERIALIZABLE 		8 指示不可以发生脏读、不可重复读和虚读的常量。
+
+
+Spring事务的传播属性：
+	PROPAGATION_REQUIRED		0	支持当前事务，如果当前没有事务，就新建一个事务。这是最常见的选择，也是Spring默认的事务的传播。
+	PROPAGATION_SUPPORTS		1	支持当前事务，如果当前没有事务，就以非事务方式执行。
+	PROPAGATION_MANDATORY		2	支持当前事务，如果当前没有事务，就抛出异常。
+	PROPAGATION_REQUIRES_NEW	3	新建事务，如果当前存在事务，把当前事务挂起。
+	PROPAGATION_NOT_SUPPORTED	4	以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。
+	PROPAGATION_NEVER			5	以非事务方式执行，如果当前存在事务，则抛出异常。
+	PROPAGATION_NESTED			6	如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则进行与PROPAGATION_REQUIRED类似的操作。
+
+Spring事务的隔离级别与JDBC类似，这里就不列出来了。隔离级别与传播属性都是在接口TransactionDefinition中定义的。
+
+Spring中的声明式事务管理配置方式，分为三步：
+	<!--配置事务管理器-->
+    <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+
+    <!--  配置事务传播行为 -->
+    <tx:advice id="daoTransaction" transaction-manager="txManager">
+        <tx:attributes>
+            <tx:method name="insert*" propagation="REQUIRED"/>
+            <tx:method name="save*" propagation="REQUIRED"/>
+            <tx:method name="query*" propagation="REQUIRED" read-only="true"/>
+            <tx:method name="find*" propagation="REQUIRED" read-only="true"/>
+            <tx:method name="get*" propagation="REQUIRED" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!-- 配置事务切面 -->
+    <aop:config>
+        <aop:pointcut id="daoPointCut" expression="execution(* com.jiehang.dao.*.*(..))" />
+        <aop:advisor advice-ref="daoTransaction" pointcut-ref="daoPointCut" />
+    </aop:config>
+	
+Spring中的编程式事务管理方式
+	就是在代码中手动控制事务的开启与提交或回滚，具体配置与写法下次补充
