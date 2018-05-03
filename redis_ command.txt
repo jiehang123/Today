@@ -13,6 +13,11 @@ STRING下的所有命令
 SET key value : 设置存储在给定键中的值 eg. SET hello world : 设置hello的值为world
 GET key value : 获取存储在给定键中的值 eg. GET hello : 这里会输出world
 DEL key [key ...] : 删除存储在给定键中的值，这个命令可以用于所有类型 eg. DEL hello ：这里会删除 hello world这个键值对
+INCR key : 将键存储的值加1，如果当前键不存在，会被当做0处理，并在0基础上加1
+DECR key : 与INCR相反，减去不存在的键，会得到-1
+INCRBY key increment : 与INCR类似，这里只是指定了加的数量
+DECRBY key increment : 与INCRBY类似
+INCRBYFLOAT key increment : 与INCRBY类似，这里只是加上一个浮点数
 
 
 LIST下的所有命令
