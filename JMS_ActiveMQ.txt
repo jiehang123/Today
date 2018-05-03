@@ -71,7 +71,7 @@ Spring中的配置：
 	  <property name="messageListener" ref="queueMessageListener"/> 
 	  <property name="concurrentConsumers" value="2" /> 
     </bean 
-  解释：容器首先需要知道消费的目的地是什么，所以需要配置destination，其次还需要知道要去监听那个JMS服务器，如果这里既有ActiveMQ，又有RabbitMQ呢？所以需要配置connectionFactory，再者容器接收到的消息分具体发给哪个监听器去处理呢？所以要配置messageListener
+  解释：容器首先需要知道消费的目的地是什么，所以需要配置destination，其次还需要知道要去监听哪个JMS服务器，如果这里既有ActiveMQ，又有RabbitMQ呢？所以需要配置connectionFactory，再者容器接收到的消息具体分发给哪个监听器去处理呢？所以需要要配置messageListener
   
   最后我们定义一个queue或者topic
 	<!-- 定义消息队列（Queue） -->
@@ -85,4 +85,4 @@ Spring中的配置：
 	</bean> 
   解释：不用解释了
   
-配置到这里就基本上实现了对于一个消息队列的监听。如果我们需要有生产者去发送消息，或者不使用Spring去监听消息，而是写消费者去消费消息，配置会有些不同。如下继续：
+配置到这里就基本上通过Spring实现了对于一个消息队列的监听。如果我们需要有生产者去发送消息，或者不使用Spring去监听消息，而是写消费者去消费消息，配置会有些不同。如下继续：
