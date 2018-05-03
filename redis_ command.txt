@@ -1,1 +1,46 @@
+本文主题：redis的基本命令讲解
+
+本文约定对于所有命令的解释与示例模板
+命令 : 解释 [eg. 命令示例 : 示例解释]
+
+redis有五种数据结构：STRING(字符串), LIST(列表), SET(集合), HASH(散列), ZSET(有序集合)
+
+KEYS * : 查看所有key
+SELECT index : 切换redis数据库 eg. select 5 : 将当前数据库切换到数据库5
+
+
+STRING下的所有命令
+SET key value : 设置存储在给定键中的值 eg. SET hello world : 设置hello的值为world
+GET key value : 获取存储在给定键中的值 eg. GET hello : 这里会输出world
+DEL key [key ...] : 删除存储在给定键中的值，这个命令可以用于所有类型 eg. DEL hello ：这里会删除 hello world这个键值对
+
+
+LIST下的所有命令
+LPUSH key value [value ...] : 将给定值推入列表的左侧
+RPUSH key value [value ...] : 将给定值推入列表的右侧
+LPOP key : 从列表的左侧弹出一个值，并返回这个被弹出的值
+RPOP key : 从列表的右侧弹出一个值，并返回这个被弹出的值
+LRANGE key start stop : 下标从零开始，从左起获取列表在给定范围上的所有值，包括start和stop，如果start为0,stop为-1，则可以取出所有值。
+RRANGE key start stop : 与LRANGE相对应。
+
+
+SET下的所有命令
+SADD key value [value ...] : 将给定元素添加到集合
+SMEMBERS key : 返回集合包含的所有元素
+SISMEMBER key value : 检查给定元素是否存在于集合中
+SREM key value [value ...] : 如果给定元素存在于集合中，那么移除这个元素
+
+
+HASH下的所有命令
+HSET key field value : 在散列里面关联起给定的键值对
+HGET key field : 获取指定散列键的值
+HGETALL key : 获取散列包含的所有键值对
+HDEL key field : 如果给定键存在散列中，那么移除这个键值
+
+
+ZSET下的所有命令
+ZADD
+ZRANGE
+ZRANGEBYSOURE
+ZREM
 
