@@ -1,0 +1,88 @@
+﻿本文主题：消息队列的基本概念与Spring整合ActiveMQ
+
+消息队列是分布式系统中的重要组件，当不需要立即获得结果，但是并发量又需要进行控制的时候，差不多就是需要使用消息队列的时候。但是本文不涉及任何集群和分布式的知识，因为我还没学到 -_-# ，这里只是讲解Demo。
+
+消息队列的使用场景：
+  应用解耦：消息的发送方和接收方不需要彼此联系，也不会受到对方影响，避免了调用接口失败而导致整个过程失败。
+  异步处理：多应用对消息队列中同一消息进行处理，应用间并发处理消息，相比串行处理，减少处理时间；
+  广播：使用主题作为消息通信载体，类似于广播模式，发布者发布一条消息，该消息通过主题传递给所有的订阅者，在一条消息广播之后才订阅的用户则是收不到该条消息的。
+  限流削峰：系统处理能力有限时，可以利用消息队列做一个通用的“漏斗”，例如，广泛应用于秒杀或抢购活动中，避免流量过大导致应用系统挂掉的情况。
+  消息驱动的系统：系统分解为消息队列，消息制造者和消息消费者，一个处理流程可以根据需要拆成多个阶段，阶段之间用队列连接起来，前一个阶段处理的结果放入队列，后一个阶段从队列中获取消息继续处理。
+  
+消息队列的两种模式：
+点对点模式：消息生产者和消息消费者
+  *每个消息只有一个消费者，消息一旦被消费，就不存在Queue中了（Queue支持存在多个消费者，但是一个消息只会被一个消费者消费）。
+发布订阅模式：消息发布者和消息订阅者
+  *发布者将消息发送到topic中，如果存在多个消费者订阅了该topic，那么该消息就会被所有订阅者消费。
+  
+负载均衡：
+  一个queue配置多个消费者，他们都有独立但相同的消费能力，可以实现可靠的负载均衡。
+  一个topic配置多个订阅者，这些订阅者能处理不同的业务逻辑，订阅者节点组成一个订阅者负载均衡，即分组订阅。
+  
+
+下面详细解释 Spring+ActiveMQ的配置：
+
+首先要明白消息被生产和消费的步骤
+发送消息的基本步骤：
+  (1)、创建连接使用的工厂类JMS ConnectionFactory 
+  (2)、使用管理对象JMS ConnectionFactory建立连接Connection，并启动
+  (3)、使用连接Connection 建立会话Session 
+  (4)、使用会话Session和管理对象Destination创建消息生产者MessageSender 
+  (5)、使用消息生产者MessageSender发送消息
+
+消息接收者接收消息的步骤
+  (1)、创建连接使用的工厂类JMS ConnectionFactory 
+  (2)、使用管理对象JMS ConnectionFactory建立连接Connection，并启动
+  (3)、使用连接Connection 建立会话Session 
+  (4)、使用会话Session和管理对象Destination创建消息接收者MessageReceiver 
+  (5)、使用消息接收者MessageReceiver接受消息，需要用setMessageListener将MessageListener接口绑定到MessageReceiver消息接收者必须实现了MessageListener接口，需要定义onMessage事件方法
+
+Spring中的配置：
+  
+  配置ConnectionFactory：
+	<!-- 配置JMS连接工厂 -->
+    <bean id="connectionFactory" class="org.springframework.jms.connection.CachingConnectionFactory">
+        <property name="targetConnectionFactory" ref="targetConnectionFactory" />
+        <property name="sessionCacheSize" value="10"/>
+    </bean>
+  解释：这里的connectionFactory只是方便Spring用来管理连接，真正被管理的JMS服务器连接是由不同的JMS服务器厂商提供的，所以需要配置真正的连接并且把它注入到Spring的ConnectionFactory中。如下：
+  
+  配置真正的MQ连接工厂：
+	<bean id="targetConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+		<property name="brokerURL" value="tcp://45.76.51.233:61616" />
+	</bean>
+  解释：这里是配置ActiveMQ的连接工厂。ActiveMQ还为我们提供了PooledConnectionFactory，通过往里面注入ActiveMQConnectionFactory，可以将Connection, Session和MessageProducer池化。再加如下配置：
+  
+    <bean id="pooledConnectionFactory" class="org.apache.activemq.pool.PooledConnectionFactory">
+        <property name="connectionFactory" ref="targetConnectionFactory" />
+        <property name="maxConnections" value="10"/>
+    </bean>
+  解释：如果Spring需要用到池化连接工厂，那就需要在JMS连接工厂里面将targetConnectionFactory的引用改成pooledConnectionFactory。我们也是可以不用这个池化连接工厂的。
+  
+  配置监听器：
+    <!-- 配置消息队列监听器-->
+    <bean id="queueMessageListener" class="com.jiehang.listener.QueueMessageListener" />
+  解释：这里我自己定义了一个监听器，实现了Spring中的MessageListener接口，这个类会对接收到的消息进行处理。
+  
+  配置监听器容器，生产者发送消息到消息队列之后，消费者如何知道有消息被发送到消息队列了呢？它如何去实时的获取消息呢？Spring为我们提供了一个消息监听容器：
+    <bean id="queueListenerContainer" class="org.springframework.jms.listener.DefaultMessageListenerContainer"> 
+	  <property name="connectionFactory" ref="connectionFactory"/> 
+	  <property name="destination" ref="queueDestination"/> 
+	  <property name="messageListener" ref="queueMessageListener"/> 
+	  <property name="concurrentConsumers" value="2" /> 
+    </bean 
+  解释：容器首先需要知道消费的目的地是什么，所以需要配置destination，其次还需要知道要去监听那个JMS服务器，如果这里既有ActiveMQ，又有RabbitMQ呢？所以需要配置connectionFactory，再者容器接收到的消息分具体发给哪个监听器去处理呢？所以要配置messageListener
+  
+  最后我们定义一个queue或者topic
+	<!-- 定义消息队列（Queue） -->
+	<bean id="queueDestination" class="org.apache.activemq.command.ActiveMQQueue"> 
+	  <property name="physicalName" value="JiehangQueue"/> 
+	</bean>
+  
+	<!-- 定义消息队列（Queue） -->
+	<bean id="topicDestination" class="org.apache.activemq.command.ActiveMQTopic"> 
+	  <property name="physicalName" value="JiehangTopic"/> 
+	</bean> 
+  解释：不用解释了
+  
+配置到这里就基本上实现了对于一个消息队列的监听。如果我们需要有生产者去发送消息，或者不使用Spring去监听消息，而是写消费者去消费消息，配置会有些不同。如下继续：
