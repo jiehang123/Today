@@ -365,3 +365,20 @@ private Runnable getTask() {
 3.每个线程调用runWoker方法，使得线程不断从任务队列中获取任务来解决。
 4.当任务队列没有任务的时候，线程会阻塞在queue.take方法那里。
 5.通常来说runWoker方法应该是死循环（不是一直在循环，会阻塞的），但是当在getTask返回null或者抛出了异常，会退出循环，进入processWokerExit方法进行回收操作。
+
+
+附录A
+ThreadPoolExecutor中使用的AtomicInteger详细解释：
+clt被定义成AtomicInteger，该变量既可以表示当前有效线程数，又可以表示当前线程池状态。
+runState有5种状态，需要3位才可以放下，所以clt前三位用来记录线程池状态，后二十九位用来记录有效线程数
+COUNT_BITS = Integer.SIZE - 3 = 29;
+RUNNING = -1 << COUNT_BITS; -1的二进制是111...，由32个1组成，把它向左无符号移动29位，得到111000...,前3个1，后面29个0
+SHUTDOWN = 0 << COUNT_BITS; 0就是000...，向左无符号移动29位之后，还是32个0
+STOP = 1 << COUNT_BITS = 001000...，1后面29个0
+TIDYING = 2 << COUNT_BITS = 010000...
+
+
+
+
+
+
