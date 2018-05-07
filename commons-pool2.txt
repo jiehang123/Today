@@ -1,2 +1,68 @@
 本文主题：对象池的简单讲解与使用
 
+下面是我写的一个Demo，以此Demo为例，开始进行源码浅析：
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.PooledObjectFactory;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+
+public class SimplePoolTest {
+	public static void main(String[] args) throws Exception {
+		GenericObjectPool<StringBuffer> pool = new GenericObjectPool<>(new PooledStringBufferFactory());
+		pool.setMaxIdle(8);
+		pool.setMaxWaitMillis(3000);
+		for(int i=0; i<10; i++) {
+			StringBuffer sb = pool.borrowObject();
+			System.out.println(sb);
+//			pool.returnObject(sb);
+		}
+		pool.close();
+		
+	}
+}
+
+class PooledStringBufferFactory implements PooledObjectFactory<StringBuffer> {
+	private static int i;
+	@Override
+	public PooledObject<StringBuffer> makeObject() throws Exception {
+		return new DefaultPooledObject<StringBuffer>(new StringBuffer("jiehang-").append(i++).append("--"));
+	}
+	@Override
+	public void destroyObject(PooledObject<StringBuffer> p) throws Exception {
+	}
+	@Override
+	public boolean validateObject(PooledObject<StringBuffer> p) {
+		return false;
+	}
+	@Override
+	public void activateObject(PooledObject<StringBuffer> p) throws Exception {
+	}
+	@Override
+	public void passivateObject(PooledObject<StringBuffer> p) throws Exception {
+	}
+}
+
+
+GenericObjectPool是对象池的核心实现
+先看构造方法签名：
+public GenericObjectPool(final PooledObjectFactory<T> factory);
+public GenericObjectPool(final PooledObjectFactory<T> factory, final GenericObjectPoolConfig config);
+public GenericObjectPool(final PooledObjectFactory<T> factory, final GenericObjectPoolConfig config, final AbandonedConfig abandonedConfig);
+
+开始分析源码：
+public GenericObjectPool(final PooledObjectFactory<T> factory, final GenericObjectPoolConfig config) {
+    super(config, ONAME_BASE, config.getJmxNamePrefix());
+    if (factory == null) {
+        jmxUnregister(); // tidy up
+        throw new IllegalArgumentException("factory may not be null");
+    }
+    this.factory = factory;
+    idleObjects = new LinkedBlockingDeque<>(config.getFairness());
+    setConfig(config);
+    startEvictor(getTimeBetweenEvictionRunsMillis());
+}
+
+
+其中有两个最重要的方法： borrowObject() 和 returnObject(final T obj)
+分别表示从对象池中借出一个对象和还回一个对象到对象池中。
+
