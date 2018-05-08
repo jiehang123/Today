@@ -1,5 +1,7 @@
-本文主要讲解一下连接池的实现方式，以BasicDataSource类为例，对源码进行简单分析。
-在讲解连接池之前，需要掌握池的一些基本概念和使用方式，这里我不讲，下面用到的时候我会解释一些，有兴趣的同学可以查看commons-pool2里面的源码。
+本文主题：连接池的实现方式和源码简单分析，以BasicDataSource类为例
+
+在讲解连接池之前，需要掌握对象池(commons-pool2)的一些基本概念和使用方式，连接池是基于对象池来构建的，
+如果不太了解可以先看看我的另一篇博客：https://github.com/jiehang123/Today/blob/master/ObjectPool.txt
 
 我们知道，操作数据库的一般步骤如下：
 1.注册驱动
@@ -164,7 +166,6 @@ return new DriverConnectionFactory(driver, url, connectionProperties);
 
 poolableConnectionFactory = createPoolableConnectionFactory(driverConnectionFactory);
 这里会用上面的连接工厂去创建一个池化连接工厂，这个方法里面就是一个构造函数，然后设置一堆乱七八糟的属性，这里不贴源码了。
-注意：池的使用方式在这里我们不纠结，不太懂的先看看本文最下面的demo了解一下就好了。
 池化连接工厂实现了PooledObjectFactory接口，重写了makeObject等方法，他的作用暂时可以理解为产生池化对象（这里的池化对象就是池化连接）。
 
 使用池化对象工厂创建连接池 createConnectionPool(poolableConnectionFactory) 这个方法的源码我们需要看一看：
@@ -173,7 +174,6 @@ protected void createConnectionPool(final PoolableConnectionFactory factory) {
 	final GenericObjectPoolConfig config = new GenericObjectPoolConfig();
 	updateJmxName(config);
 	config.setJmxEnabled(registeredJmxName != null);
-	//这行代码和下面demo中的一样，将池化对象工厂传入到池中，创建出一个连接池对象，下面设置属性的操作也和demo中类似。
 	final GenericObjectPool<PoolableConnection> gop = createObjectPool(factory, config, abandonedConfig);
 	gop.setMaxTotal(maxTotal);
 	gop.setMaxIdle(maxIdle);
@@ -246,76 +246,5 @@ PoolableConnection.close()中会调用 pool.returnObject(this)将该connection�
 	   每个PoolableConnection都关联同一个连接池，这样的好处是便于PoolableConnection的close方法的行为。
 	6、调用createDataSourceInstance()创建内部数据源。
 	7、为连接池中添加PoolableConnection。
-
-
-
-池的简单使用demo：
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.PooledObjectFactory;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.apache.commons.pool2.impl.GenericObjectPool;
-
-public class SimplePoolTest {
-	public static void main(String[] args) throws Exception {
-		GenericObjectPool<StringBuffer> pool = new GenericObjectPool<>(new PooledStringBufferFactory());
-		pool.setMaxIdle(8);				//池中可用的数量，默认就是 8
-		pool.setMaxWaitMillis(3000);	//从池中拿不到对象时，最长等待的时间，超时就报错。
-		for(int i=0; i<10; i++) {		//现在我要循环从池中获取10个对象。
-			StringBuffer sb = pool.borrowObject();	//从池中获取对象
-			System.out.println(sb);		//对获取到的对象进行操作。
-			//pool.returnObject(sb);	//将用完的对象还回到池中。如果这段代码不被注释，输出就是结果一，如果注释了，输出就是结果二
-		}
-		pool.close();	//关闭池
-	}
-}
-//这个是我根据需要创建的池化工厂，重写了池化对象工厂里定义的方法。
-class PooledStringBufferFactory implements PooledObjectFactory<StringBuffer> {
-	private static int i;
-	@Override
-	public PooledObject<StringBuffer> makeObject() throws Exception {
-		return new DefaultPooledObject<StringBuffer>(new StringBuffer("jiehang-").append(i++).append("--"));
-	}
-	@Override
-	public void destroyObject(PooledObject<StringBuffer> p) throws Exception {
-	}
-	@Override
-	public boolean validateObject(PooledObject<StringBuffer> p) {
-		return false;
-	}
-	@Override
-	public void activateObject(PooledObject<StringBuffer> p) throws Exception {
-	}
-	@Override
-	public void passivateObject(PooledObject<StringBuffer> p) throws Exception {
-	}
-}
-
-代码输出结果一：
-jiehang-0--
-jiehang-0--
-jiehang-0--
-jiehang-0--
-jiehang-0--
-jiehang-0--
-jiehang-0--
-jiehang-0--
-jiehang-0--
-jiehang-0--
-
-代码输出结果二：
-jiehang-0--
-jiehang-1--
-jiehang-2--
-jiehang-3--
-jiehang-4--
-jiehang-5--
-jiehang-6--
-jiehang-7--
-Exception in thread "main" java.util.NoSuchElementException: Timeout waiting for idle object
-	at org.apache.commons.pool2.impl.GenericObjectPool.borrowObject(GenericObjectPool.java:448)
-	at org.apache.commons.pool2.impl.GenericObjectPool.borrowObject(GenericObjectPool.java:362)
-	at com.jiehang.pool.simple.SimplePoolTest.main(SimplePoolTest.java:14)
-
-具体要池化什么对象，池不知道，所以我们需要自己实现PooledObjectFactory接口，用来创建或者激活我们需要的被池化对象，这里被池化对象就是StringBuffer
-在连接池中被池化对象是connection，不过这个connection是经过一些包装了的，不是JDBC里面直接拿到的那个connection，但是作用都是一样的。
-池的实现方式先不纠结，我们照着用就好了。
+	
+	
