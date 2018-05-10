@@ -1,0 +1,16 @@
+本文主题：java常见面试题汇总
+
+/****** java基础  ************/
+
+
+/****** 多线程问题  **********/
+https://github.com/jiehang123/Today/blob/master/Thread_Questions.txt
+
+
+/****** spring  *************/
+问：Spring框架中的bean是线程安全的么?
+答：spring中bean的scope默认是singleton，所以理论上他也不是线程安全的，但实际上，大部分的Spring bean并没有可变的状态(比如Serview类和DAO类)，所以在某种程度上说Spring的单例bean是线程安全的。如果你的bean有多种状态的话（比如 View Model 对象），就需要自行保证线程安全。
+singleton表示该bean全局spring容器中只有一个实例，Spring中bean的scope默认也是singleton.
+prototype表示该bean在每次被注入的时候，都要重新创建一个实例，这种情况适用于有状态的Bean.
+
+
