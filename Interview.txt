@@ -14,3 +14,5 @@ singleton表示该bean全局spring容器中只有一个实例，Spring中bean的
 prototype表示该bean在每次被注入的时候，都要重新创建一个实例，这种情况适用于有状态的Bean.
 
 
+/****** redis  **************/
+https://github.com/jiehang123/Today/blob/master/Interview_Redis.txt
