@@ -10,8 +10,8 @@ Rebalance:平衡调整
 	AVL树的调整过程很类似于数学归纳法，每次在插入新节点之后都会找到离新插入节点最近的非平衡节点，然后对其进行旋转操作以使得树中的每个节点都处于平衡状态。
 
 LL:在一个节点的左子数的左子数上插入一个新节点，需要将节点右旋（左旋和右旋我没搞懂，反正我就是按照下面这个思路来调整的，下面我不说右旋左旋，只说LL型，RR型），如下：
-		 A                  B
-		/                 /   \
+	     A                  B
+	    /                 /   \
 	   B                 C     A
 	  /
 	 C
@@ -43,11 +43,11 @@ private AVLNode<T> singleRotateRight(AVLNode<T> temNode) {  //因为是A没有�
 }
 
 LR:在一个节点的左子数的右子数上插入一个新节点，如下：
-		 A               A                C
-		/               /               /   \
+	     A               A                C
+	    /               /               /   \
 	   B               C               B     A
-	    \			  /
-	     C			 B
+	    \	 	 /
+	     C		B
 此时，A、B、C三个节点都需要调整，方法：首先调整B和C的位置，即将B节点RR型变换，再将A节点LL型变换，代码如下：
 private AVLNode<T> doubleRotateWithLeft(AVLNode<T> temNode) {  //因为是A没有达到平衡，这里的TemNode就是A节点
 	temNode.left = singleRotateRight(temNode.left);		//先根据RR方法调整B及其子节点，把A转换成LL型
@@ -55,11 +55,11 @@ private AVLNode<T> doubleRotateWithLeft(AVLNode<T> temNode) {  //因为是A没�
 }
 
 RL:在一个节点的左子数的右子数上插入一个新节点，需要将节点，如下：
-		 A               A                C
-		  \               \             /   \
+	     A               A                C
+	      \               \             /   \
 	       B               C           A     B
-	      /			        \
-	     C			         B
+	      /			\
+	     C			 B
 此时，A、B、C三个节点都需要调整，方法：首先调整B和C的位置，即将B节点LL型变换，再将A节点RR型变换，代码如下：
 private AVLNode<T> doubleRotateWithRight(AVLNode<T> temNode) {  //因为是A没有达到平衡，这里的TemNode就是A节点
 	temNode.right = singleRotateLeft(temNode.right);	//先根据RR方法调整B及其子节点，把A转换成RR型
