@@ -1,0 +1,45 @@
+本文主题：使用Maven搭建多模块企业级项目
+
+一般企业级项目都是使用Maven分模块来构建的，每个模块都对应着一个pom.xml，它们之间通过继承和聚合相互关联。
+
+为什么要分模块呢？
+对于小项目使用一个项目开发看起来确实比较简洁。但是企业级项目一般都是由成千上万个类组成，如果部分模块不仅仅看起来复杂，而且还可能遇到如下问题：
+	1、如果需要新加入一个web客户端，就需要新建一个项目，但是原来的大部分bean和service都是可以重用的。
+	2、pom.xml依赖列表太长，越来越难以维护，如果很多人一起开发，可能一个依赖会被多次引入，甚至一个依赖出现多个版本，产生很多多余的依赖。
+	3、如果有人修改了一个类并上传编译了，整个项目都会报错，其他人都无法编译，只有等他修复好之后才能再次编译。
+	4、build的时间越来越长，有任何代码修改都需要重新打包部署，即使是与你无关的功能。
+	5、所有代码都可以被任何开发修改，即使是一些需要经验丰富的认识维护的代码，也可能被小白任意修改掉，降低了代码质量。
+我们会发现，其实这里实际上没有遵守一个设计模式原则：“高内聚，低耦合”。虽然我们通过包名划分了层次，并且这些包的依赖都是单向的，没有包的环依赖，但就构建层次来说，所有东西都被耦合在一起了。因此我们需要使用Maven划分模块。
+
+分模块举例：
+假设我们需要构建一个springMVC+spring+springJdbc的项目（虚拟项目名alimamaProject）：
+分别由Controller+service+dao组成，那我们可以分为如下几个模块：
+alimamaProject-parent	这是父模块
+alimamaProject-commons	这是公共模块，主要存放POJO对象
+alimamaProject-utils	这是工具模块，主要存放一些工具类
+alimamaProject-dao		这是dao层，只进行数据库操作
+alimamaProject-service	这是service层
+alimamaProject-web		这是web层，存放controller和pages
+
+先new一个Maven Project项目，取名alimamaProject-parent，不需要有archetype，可以直接使用Create a simple project
+特别注意的是，根项目都必须要是一个pom项目，所以在pom.xml里面修改package为pom。
+
+再在parent上面new一个名为alimamaProject-commons的模块，可以选择maven-archetype-quickstart，这个项目打包成jar就好，所以pom.xml里面修改package为jar
+
+alimamaProject-utils, alimamaProject-dao, alimamaProject-service都和commons一样的套路，都是jar包
+
+alimamaProject-web比较特殊，这是一个面向客户的模块，可以选择maven-archetype-webapp，这个项目需要打包成war，所以pom.xml里面package需要是war
+
+上面parent和其他模块是继承的关系，接下来需要加入模块之间的依赖关系，比如dao需要用到commons里面的bean对象，就需要在dao的pom.xml里面加入如下依赖：
+<dependency>
+	<groupId>com.jiehang</groupId>
+	<artifactId>alimamaProject-commons</artifactId>
+	<version>${project.version}</version>
+</dependency>
+
+这样dao模块就可以引用bean对象了。在dao模块内的依赖jar包那里，可以看到alimamaProject-commons-0.0.1-SNAPSHOT.jar这个jar包（如果dao和commons在同一级项目里面，也可能看不到jar包，你可以把commons项目close掉，就能看到jar包了）。
+其他项目之间的依赖关系也是类似的引入方式。
+
+
+这样一个基本的多模块项目构建就完成了，这里还有一些Maven的属性就不多讲了，可以参看另一篇博客：
+// TODO
