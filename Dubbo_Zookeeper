@@ -1,0 +1,120 @@
+本文主题：dubbo+zookeeper的基本配置
+
+为什么要使用dubbo？
+dubbo和zookeeper是什么关系？
+
+dubbo是一个分布式服务框架，致力于提供高性能和透明化的 RPC 远程服务调用方案，是阿里巴巴 SOA 服务化治理方案的核心框架，每天为 2,000+ 个服务提供 3,000,000,000+ 次访问量支持，并被广泛应用于阿里巴巴集团的各成员站点。
+dubbo采用全Spring配置方式，透明化接入应用，对应用没有任何API侵入，只需用Spring加载dubbo的配置即可，dubbo基于Spring的Schema扩展进行加载
+dubbo推荐使用zookeeper作为注册中心。
+
+创建一个简单的dubbo项目，其中有三个模块：api, provider, consumer
+api 中只是定义了一个接口
+provider 实现了api中的接口，作为实际服务者
+consumer 会去调用服务，作为消费者
+
+先看provider中的配置，下面的注释已经写的很清楚了
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://code.alibabatech.com/schema/dubbo
+       http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
+       
+    <!--定义了提供方应用信息，用于计算依赖关系；在 dubbo-admin 或 dubbo-monitor 会显示这个名字，方便辨识-->
+    <dubbo:application name="demotest-provider" owner="programmer" organization="dubbox"/>
+    <!--使用 zookeeper 注册中心暴露服务，注意要先开启 zookeeper; ps:这里注册了三个zookeeper，是为了做集群，每台服务器上都会部署这个provider，三台中至少有2台启动，就可以提供服务，如果主服务挂了，会选一台从服务器当做主服务器-->
+    <dubbo:registry protocol="zookeeper" address="localhost:2181,localhost:2182,localhost:2183"/>
+    <!-- 用dubbo协议在20880端口暴露服务 -->
+    <dubbo:protocol name="dubbo" port="20880" />
+    <!--使用 dubbo 协议实现定义好的 api.demoService 接口-->
+    <dubbo:service interface="com.alibaba.dubbo.demo.DemoService" ref="demoService" protocol="dubbo" />
+    <!--具体实现该接口的 bean-->
+    <bean id="demoService" class="com.alibaba.dubbo.demo.impl.DemoServiceImpl"/>
+    
+</beans>
+
+
+再看consumer中的配置，下面的注释也很清楚了
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://code.alibabatech.com/schema/dubbo http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
+    <dubbo:application name="demotest-consumer2" owner="programmer" organization="dubbox"/>
+    <!--向 zookeeper 订阅 provider 的地址，由 zookeeper 定时推送-->
+    <dubbo:registry protocol="zookeeper" address="localhost:2181,localhost:2182,localhost:2183"/>
+    <!--使用 dubbo 协议调用定义好的 api.demoService 接口-->
+    <dubbo:reference id="demoService" interface="com.alibaba.dubbo.demo.DemoService"/>
+</beans>
+
+先启动zookeeper，再启动dubbo-provider，再启动dubbo-comsumer
+
+下面简单讲解一下我测试的时候遇到的问题，代码我没有上传，dubbo的配置上面已经说了，就是多配置几个zookeeper的ip和port
+因为我是在一台机器上测试的，所以启动了三个zookeeper，那就会有冲突，需要修改一下它的配置：
+  启动zookeeper的时候我出现了秒退，后来发现是JAVA_HOME拿不到，怀疑可能jdk目录有空格引起的
+  bin目录下的 zkServer.cmd 是启动zookeeper服务的，启动时它会去拿 zkEnv.cmd 中配置的，里面的JAVA_HOME默认是
+  set JAVA_HOME=%JAVA_HOME:"=%
+  我直接改成了我的JDK目录，这样就好了：
+  set JAVA_HOME="C:\Program Files\Java\jdk1.8.0_161"
+  
+  安装zookeeper好之后，看zoo.cfg文件，我这里把注释都去掉了，如下：
+  tickTime=2000
+  initLimit=10
+  syncLimit=5
+  # DataDir被我修改了的
+  dataDir=D:\\zookeeper-1\\data   
+  # clientPort需要修改
+  clientPort=2181
+  # 下面三行是我加的
+  server.1=localhost:2881:3881
+  server.2=localhost:2882:3882
+  server.3=localhost:2883:3883
+
+  我在本机上有三个zookeeper，上面文件中最后三行是我加的，另外两个也同样加上了
+  三个dataDir分别是：
+  dataDir=D:\\zookeeper-1\\data
+  dataDir=D:\\zookeeper-2\\data
+  dataDir=D:\\zookeeper-3\\data
+  data也是一个文件夹，里面只有一个无后缀名文件叫做 myid ，第一个的myid里只写了一个1，第二写了个2，第三个写了个3
+  myid中的 n 分别对应上面 service.n 中的（这里的n就是1、2或3）
+  clientPort也被我修改了的，三个分别是 2181,2182,2183
+
+这样三个zookeeper就可以无冲突的启动起来了。
+
+
+这里再多讲一点：
+  如果是三台服务器做集群，就会有三台tomcat来部署这个provider的服务，但是我这里只有一台，所以我在本机上启动了三个tomcat，但是会有端口冲突，所以要注意如下内容：
+  一台机器同时启动多个tomcat:
+  <Server port="8005" shutdown="SHUTDOWN">
+  8005接受服务器关闭指令的端口号，我们叫关闭指令端口.
+  <Connector port="8080" protocol="HTTP/1.1"
+                connectionTimeout="20000"
+                redirectPort="8443" />
+  8080：http请求处理端口，我们在网页上输入的普通url地址包含的端口就是它，这个端口叫http端口.
+  8443：https请求的处理端口.这个端口叫https端口.
+  <Connector port="8009" protocol="AJP/1.3" redirectPort="8443" />
+  8009接收AJP协议的处理端口.这个端口叫ajp端口.
+  https请求的处理端口.
+
+  实际上就是这四个端口会产生冲突：
+  8005,8080,8443,8009
+
+  tomcat-2 的端口分别修改为：
+  8006,8081,8444,8010
+  tomcat-3 的端口分别修改为：
+  8007,8082,8445,8011
+  
+这样就可以在一台机器上启动多个tomcat了。
+
+
+总结一下：
+dubbo最大的特点是按照分层的方式来架构，使用这种方式可以使各个层之间解耦合。
+从服务模型的角度来看，Dubbo采用的是一种非常简单的模型，要么是提供方提供服务，要么是消费方消费服务，所以基于这一点可以抽象出服务提供方（Provider）和服务消费方（Consumer）两个角色。
+zookeeper是dubbo推荐使用的注册中心，如果不使用zookeeper，也可以采用直连的方式来构建dubbo项目，但一般不会这么做，直连的方式下次有时间我会写个demo.
+
+
+本文demo源码地址(不是集群项目)：https://github.com/jiehang123/DubboDemo
+
