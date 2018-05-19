@@ -1,4 +1,4 @@
-本文主题：连接池的实现方式和源码简单分析，以BasicDataSource类为例
+本文主题：DBCP连接池的实现方式和源码简单分析，以BasicDataSource类为例
 
 在讲解连接池之前，需要掌握对象池(commons-pool2)的一些基本概念和使用方式，连接池是基于对象池来构建的，
 如果不太了解可以先看看我的另一篇博客：https://github.com/jiehang123/Today/blob/master/ObjectPool.txt
