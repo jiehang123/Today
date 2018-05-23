@@ -1,0 +1,22 @@
+﻿本文主题： springmvc的知识点总结(配置规范、标签详解、springmvc接受请求过程，springmvc容器与spring容器的关系)
+
+springmvc接受请求的过程：
+
+
+下面几个标签的比较与讲解：
+<context:annotation-config>
+<context:component-scan>
+<mvc:annotation-driven />
+
+context:annotation-config allow us to use @Autowire, @Required and @Qualifier annotations.
+context:component-scan allow @Component, @Service, @Controller, etc.. annotations.
+mvc:annotation-driven declares explicit support for annotation-driven MVC controllers (i.e. @RequestMapping, @Controller, although support for those is the default behaviour), as well as adding support for declrative validation via @Valid and message body marshalling with @RequestBody/ResponseBody.
+
+
+<context:annotation-config> is used to activate annotations in beans already registered in the application context (no matter if they were defined with XML or by package scanning).
+<context:component-scan> can also do what <context:annotation-config> does but <context:component-scan> also scans packages to find and register beans within the application context.
+这两个标签经常被用来比较，这是stackoverflow上一段精炼回答，另外还给出了例子，这是URL: https://stackoverflow.com/questions/7414794/difference-between-contextannotation-config-vs-contextcomponent-scan
+mvc:annotation-driven的作用就是告诉容器，接收到请求都是采用annotation的方式来进行分发，这也是springmvc的默认分发方式。springmvc还会有几种分发方式，后面都有讲解并举例。
+
+<context:component-scan>还有两个子标签：context:include-filter, context:exclude-filter
+很明显这是表示扫描bean的时候，包括一些要注册的bean，和过滤掉一些不需要的bean。支持正则表达式，annotation。
