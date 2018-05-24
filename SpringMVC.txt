@@ -1,0 +1,71 @@
+﻿本文主题： springmvc的知识点总结(配置规范、标签详解、springmvc接收请求过程，springmvc容器与spring容器的关系)
+
+springmvc接收请求的过程：
+
+
+下面讲几个标签各自的作用和比较：
+<context:annotation-config>
+<context:component-scan>
+<mvc:annotation-driven />
+
+context:annotation-config allow us to use @Autowire, @Required and @Qualifier annotations.
+context:component-scan allow @Component, @Service, @Controller, etc.. annotations.
+mvc:annotation-driven declares explicit support for annotation-driven MVC controllers (i.e. @RequestMapping, @Controller, although support for those is the default behaviour), as well as adding support for declrative validation via @Valid and message body marshalling with @RequestBody/ResponseBody.
+
+
+<context:annotation-config> is used to activate annotations in beans already registered in the application context (no matter if they were defined with XML or by package scanning).
+<context:component-scan> can also do what <context:annotation-config> does but <context:component-scan> also scans packages to find and register beans within the application context.
+这两个标签经常被用来比较，这是stackoverflow上一段精炼回答，另外还给出了例子，URL: https://stackoverflow.com/questions/7414794/difference-between-contextannotation-config-vs-contextcomponent-scan
+mvc:annotation-driven的作用就是告诉容器，接收到请求都是采用annotation的方式来进行分发，这也是springmvc的默认分发方式。springmvc还会有几种分发方式，后面都有讲解并举例。
+
+<context:component-scan>还有两个子标签：context:include-filter, context:exclude-filter
+include表示需要扫描并注册指定的类（白名单过滤）
+exclude表示过滤掉指定的类（黑名单过滤）
+component-scan有一个属性use-default-filters默认是true，表示会扫描指定包下的所有类，如果只需要扫描include中的类，那记得要把这个属性显示的改成false。另外我猜测可能还要注意上面两个子标签的书写顺序
+
+
+下面主要讲解一下spring容器和springmvc容器的关系和产生的冲突
+在整个spring框架中，容器是一个核心思想，主要用来管理bean的整个生命周期，一个项目中，容器不一定只有一个。spring中可以包括多个容器，而且容器有上下层关系，如果项目中引入了spring和springmvc框架，那就是两个容器，spring是父容器，springmvc是子容器，并且在spring父容器中注册的bean对于springmvc子容器中是可见的，反之不成立，在springmvc子容器中注册的bean对于spring父容器中是不可见的。
+
+我的疑惑：
+我在spring.xml里面配置了context:component-scan去扫描并注册整个dao、service和controller层的类，然后我在spring-mvc.xml里面配置了mvc:annotation-driven，最后启动项目后发现springmvc无法进行跳转，原因是springmvc接收到的请求不能映射到具体的controller中。然后我把context:component-scan标签在spring-mvc.xml里面又配置了一次，这次可以成功跳转了。那么问题来了，上面不是说了子容器可以找到父容器的bean么？为什么还需要在spring-mvc中配置component-scan标签？
+具体原因：
+springmvc初始化时，会去做找springmvc容器中所有使用@Controller注解的bean（默认不会去找spring容器），来确定其是否是一个handler
+上面我在spring.xml里面配置了component-scan，但是没有在springmvc.xml里面配置，所以找不到controller，无法跳转
+解决方法：
+方案1： 我在springmvc.xml里面也配置了component-scan之后，springmvc容器里面也有这个bean了，所以能够成功跳转
+方案2： 在springmvc容器去找使用@Controller注解的bean的时候，如果springmvc容器没找不到，就让他去父容器中找，只需要在springmvc.xml里面加上如下配置：
+<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping">
+	<property name="detectHandlerMethodsInAncestorContexts">
+		<value>true</value>
+	</property>
+</bean>
+
+
+下面讲一个扩展知识点：
+springmvc除了通过annotation来映射handler，还有三种方式：
+1、BeanNameUrlHandlerMapping
+创建一个Controller继承AbstractController，然后xml里面配置：
+<bean class="org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping" />
+<bean name="/queryFund" class="com.jiehang.spring.controller.FundControllerByBeanNameUrlHandlerMapping" />
+
+2、SimpleUrlHandlerMapping
+创建一个Controller继承AbstractController，然后xml里面配置：
+<bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+	<property name="mappings">
+		<props>
+			<prop key="/queryFund">fundControllerBySimpleUrlHandlerMapping</prop>
+			<prop key="/otherUrl">otherController</prop>
+		</props>
+	</property>
+</bean>
+<bean id="fundControllerBySimpleUrlHandlerMapping" class="com.jiehang.spring.controller.FundControllerBySimpleUrlHandlerMapping" />
+如果有多个url和对应Controller可以在props里面继续配置<prop>
+
+上面两种方式都是把一个Controller当作一个servlet，它会重写父类的一个方法 protected ModelAndView handleRequestInternal(HttpServletRequest request, HttpServletResponse response)，接收url是 /queryFund 过来的请求，在重写的方法里处理业务逻辑。这两种方法都是一个Controller对应一个url，很明显没有annotation的方式好用，所以基本不会用到，还有一种方法已经过期了，这里也不提了。
+
+
+常见问题：
+1、上面三个标签各自的作用，与相互比较
+2、为什么要搞一个子容器出来，web中也用同一个父容器不行么？
+答：理论上也是可行的，但是为了系统的扩展性，以及各个组件的解耦，也就分离开了，一般把两个结合起来使用
