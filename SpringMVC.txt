@@ -16,7 +16,8 @@ mvc:annotation-driven declares explicit support for annotation-driven MVC contro
 <context:annotation-config> is used to activate annotations in beans already registered in the application context (no matter if they were defined with XML or by package scanning).
 <context:component-scan> can also do what <context:annotation-config> does but <context:component-scan> also scans packages to find and register beans within the application context.
 这两个标签经常被用来比较，这是stackoverflow上一段精炼回答，另外还给出了例子，URL: https://stackoverflow.com/questions/7414794/difference-between-contextannotation-config-vs-contextcomponent-scan
-mvc:annotation-driven的作用就是告诉容器，接收到请求都是采用annotation的方式来进行分发，这也是springmvc的默认分发方式。springmvc还会有几种分发方式，后面都有讲解并举例。
+mvc:annotation-driven的作用就是告诉容器，接收到的请求都采用annotation的方式来进行分发，这好像springmvc的默认分发方式。这个标签还有几个其他的功能，具体的我还在研究中。
+springmvc还会有几种分发方式，后面我有扩展讲解并举例。
 
 <context:component-scan>还有两个子标签：context:include-filter, context:exclude-filter
 include表示需要扫描并注册指定的类（白名单过滤）
