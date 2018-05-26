@@ -1,0 +1,67 @@
+本文主题：spring中内置缓存功能、spring整合EhCache实现缓存功能、spring整合redis实现缓存功能
+
+spring从3.1开始支持缓存功能，这种缓存是直接放在内存中，开发配置都十分简单，可以当做测试项目或者在小项目中使用，不推荐在大型企业级应用中使用。
+下面直接给出配置的方式和demo：
+
+直接在spring.xml里面添加如下两个标签就可以使用了
+<cache:annotation-driven />   <!--开启缓存注解-->
+<bean id="cacheManager" class="org.springframework.cache.concurrent.ConcurrentMapCacheManager"/>  <!--定义缓存管理器-->
+
+我把缓存放配置在service层上面，代码如下：
+  public class BlogCategoryServiceImpl implements BlogCategoryService {
+
+    private BlogCategoryDao blogCategoryDao;
+    public BlogCategoryDao getBlogCategoryDao() {
+      return blogCategoryDao;
+    }
+    public void setBlogCategoryDao(BlogCategoryDao blogCategoryDao) {
+      this.blogCategoryDao = blogCategoryDao;
+    }
+
+    @Override
+    @Cacheable(value="data")
+    public List<BlogCategory> queryBlogCategory() {
+      return blogCategoryDao.queryBlogCategory();
+    }
+    @Override
+    @CacheEvict(value="data", allEntries=true)
+    public void addBlogCategory(BlogCategory blogCategory) {
+      blogCategoryDao.addBlogCategory(blogCategory);
+    }
+    @Override
+    @CacheEvict(value="data", allEntries=true)
+    public void updateBlogCategory(BlogCategory blogCategory) {
+      blogCategoryDao.updateBlogCategory(blogCategory);
+    }
+    @Override
+    @Cacheable(value="data")
+    public BlogCategory queryBlogCategoryById(String id) {
+      return blogCategoryDao.queryBlogCategoryById(id);
+    }
+  }
+  
+这样就ok了，当我们第一次访问queryBlogCategory()的时候，获取并缓存结果到内存中，当第二次访问该方法时，就会从内存中直接获取结果，不会再去访问数据库了。
+  
+接下来讲解一下缓存的时候使用的几个基本标签：
+  @Cacheable：用来定义缓存，该标签的三个属性很重要，分别是value, key, condition
+    value属性是必须的，其表示当前方法的返回值是会被缓存在哪个Cache上的，对应Cache的名称，可以配置多个
+    key用来指定当前方法返回结果时对于的key，如果不写，spring会给我们默认指定，该属性支持EL表达式
+    condition表示缓存的条件，比如只有当结果集小于500条的时候才进行缓存
+  @CacheEvict：用来清理缓存，allEntries属性表示是否清楚所有缓存，默认是false
+  @CachePut: 前面讲过@Cacheable表示每次都会先去看缓存中是否存在key的缓存，如果存在就不执行方法，而是直接从缓存中拿，而@Cacheput表示不管缓存中有没有key的缓存，每次都会去执行方法，然后将返回结果再更新到缓存。
+
+下面介绍一下spring中的几个缓存管理器：
+SimpleCacheManager
+NoOpCacheManager
+ConcurrentMapCacheManager(这个缓存管理器就是上面的例子用的)
+CompositeCacheManager
+EhCacheCacheManager(这个下面会讲解)
+RedisCacheManager(来自Spring Date Redis项目)
+GemfireCacheManager(来自Spring Date GemFire项目)
+可以看到，在为Spring的缓存抽象选择缓存管理器时，我们有很多可选方案。具体选择哪一个要取决于想要使用的底层缓存供应商。每一个方案都可以为应用提供不同风格的缓存，其中有一些会比其他的更加适用于生产环境。尽管所做出的选择会影响到数据如何缓存，但是Spring声明缓存的方式并没有什么差别。也就是说，无论你用什么缓存管理器，Spring声明缓存的方式是不变的。
+
+
+  
+参考博客：
+https://www.cnblogs.com/fashflying/p/6908028.html
+https://blog.csdn.net/u012106290/article/details/52154241
