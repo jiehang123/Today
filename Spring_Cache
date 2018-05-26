@@ -3,7 +3,7 @@
 spring从3.1开始支持缓存功能，这种缓存是直接放在内存中，开发配置都十分简单，可以当做测试项目或者在小项目中使用，不推荐在大型企业级应用中使用。
 下面直接给出配置的方式和demo：
 
-直接在spring.xml里面添加如下两个标签就可以使用了
+直接在spring-cache.xml里面添加如下两个标签就可以使用了
 <cache:annotation-driven />   <!--开启缓存注解-->
 <bean id="cacheManager" class="org.springframework.cache.concurrent.ConcurrentMapCacheManager"/>  <!--定义缓存管理器-->
 
@@ -19,22 +19,22 @@ spring从3.1开始支持缓存功能，这种缓存是直接放在内存中，�
     }
 
     @Override
-    @Cacheable(value="data")
+    @Cacheable(value="book")
     public List<BlogCategory> queryBlogCategory() {
       return blogCategoryDao.queryBlogCategory();
     }
     @Override
-    @CacheEvict(value="data", allEntries=true)
+    @CacheEvict(value="book", allEntries=true)
     public void addBlogCategory(BlogCategory blogCategory) {
       blogCategoryDao.addBlogCategory(blogCategory);
     }
     @Override
-    @CacheEvict(value="data", allEntries=true)
+    @CacheEvict(value="book", allEntries=true)
     public void updateBlogCategory(BlogCategory blogCategory) {
       blogCategoryDao.updateBlogCategory(blogCategory);
     }
     @Override
-    @Cacheable(value="data")
+    @Cacheable(value="book")
     public BlogCategory queryBlogCategoryById(String id) {
       return blogCategoryDao.queryBlogCategoryById(id);
     }
@@ -60,6 +60,37 @@ RedisCacheManager(来自Spring Date Redis项目)
 GemfireCacheManager(来自Spring Date GemFire项目)
 可以看到，在为Spring的缓存抽象选择缓存管理器时，我们有很多可选方案。具体选择哪一个要取决于想要使用的底层缓存供应商。每一个方案都可以为应用提供不同风格的缓存，其中有一些会比其他的更加适用于生产环境。尽管所做出的选择会影响到数据如何缓存，但是Spring声明缓存的方式并没有什么差别。也就是说，无论你用什么缓存管理器，Spring声明缓存的方式是不变的。
 
+#########################
+spring整合EhCache缓存
+spring-cache.xml里面配置如下：
+  <cache:annotation-driven />
+	<bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager" p:cache-manager-ref="ehcache" />
+	<bean id="ehcache" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+		<property name="configLocation" value="classpath:ehcache.xml" />
+		<property name="shared" value="true" />
+	</bean>
+  
+ehcache.xml里面的配置如下
+<?xml version="1.0" encoding="UTF-8"?>
+<ehcache>
+	<diskStore path="java.io.tmpdir" />
+  
+	<defaultCache maxEntriesLocalHeap="10000" eternal="false"
+		timeToIdleSeconds="120" timeToLiveSeconds="120" diskSpoolBufferSizeMB="30"
+		maxEntriesLocalDisk="10000000" diskExpiryThreadIntervalSeconds="120"
+		memoryStoreEvictionPolicy="LRU">
+		<persistence strategy="localTempSwap" />
+	</defaultCache>
+
+	<cache name="book" maxEntriesLocalHeap="10000"
+		maxEntriesLocalDisk="1000" eternal="false" diskSpoolBufferSizeMB="20"
+		timeToIdleSeconds="300" timeToLiveSeconds="600"
+		memoryStoreEvictionPolicy="LFU" transactionalMode="off">
+		<persistence strategy="localTempSwap" />
+	</cache>
+</ehcache>
+
+在spring.xml里面引入spring-cache.xml即可，代码不变。
 
   
 参考博客：
