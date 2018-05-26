@@ -55,8 +55,8 @@ SimpleCacheManager
 NoOpCacheManager
 ConcurrentMapCacheManager(这个缓存管理器就是上面的例子用的)
 CompositeCacheManager
-EhCacheCacheManager(这个下面会讲解)
-RedisCacheManager(来自Spring Date Redis项目)
+EhCacheCacheManager(使用EhCache作为缓存，下面有示例)
+RedisCacheManager(来自Spring Date Redis项目，使用redis作为缓存，下面有示例)
 GemfireCacheManager(来自Spring Date GemFire项目)
 可以看到，在为Spring的缓存抽象选择缓存管理器时，我们有很多可选方案。具体选择哪一个要取决于想要使用的底层缓存供应商。每一个方案都可以为应用提供不同风格的缓存，其中有一些会比其他的更加适用于生产环境。尽管所做出的选择会影响到数据如何缓存，但是Spring声明缓存的方式并没有什么差别。也就是说，无论你用什么缓存管理器，Spring声明缓存的方式是不变的。
 
@@ -90,9 +90,44 @@ ehcache.xml里面的配置如下
 	</cache>
 </ehcache>
 
-在spring.xml里面引入spring-cache.xml即可，代码不变。
+在spring.xml里面引入spring-cache.xml即可，代码不变，就可以运行项目实现缓存了。
 
+#########################
+spring整合Redis缓存
+配置spring-redis.xml如下：
+
+<cache:annotation-driven/>
+
+<bean id="jedisConfig" class="redis.clients.jedis.JedisPoolConfig">
+	<property name="maxIdle" value="${redis.maxIdle}"></property>
+	<property name="maxTotal" value="${redis.maxActive}"></property>
+	<property name="maxWaitMillis" value="${redis.maxWait}"></property>
+	<property name="testOnBorrow" value="${redis.testOnBorrow}"></property>
+</bean>
+
+<bean id="connectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+	<property name="hostName" value="${redis.host}"></property>
+	<property name="port" value="${redis.port}"></property>
+	<property name="poolConfig" ref="jedisConfig"></property>
+</bean>
+
+<bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+	<property name="connectionFactory" ref="connectionFactory" />
+</bean>
+
+<bean id="cacheManager" class="org.springframework.data.redis.cache.RedisCacheManager">
+	<constructor-arg index = "0" type="RedisOperations">
+		<ref bean="redisTemplate" />
+	</constructor-arg>
+	<property name="defaultExpiration" value="60" />
+</bean>
+在spring.xml里面注释spring-cache.xml，并将spring-redis.xml引入，代码不用修改，就可以运行项目实现缓存了。
+注意：这里spring-data-redis的版本是1.8.6.RELEASE，这里如果用2.0以上的版本是会有版本冲突的。
+
+除了用RedisCacheManager这个缓存管理器以外，我们也可以自己封装一个redisUtils，来作为缓存类，下面简单讲解一下：
+// TODO
   
 参考博客：
 https://www.cnblogs.com/fashflying/p/6908028.html
 https://blog.csdn.net/u012106290/article/details/52154241
+https://blog.csdn.net/pengdandezhi/article/details/78921792
