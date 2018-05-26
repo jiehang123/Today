@@ -1,6 +1,30 @@
 ﻿本文主题： springmvc的知识点总结(配置规范、标签详解、springmvc接收请求过程，springmvc容器与spring容器的关系)
 
-springmvc接收请求的过程：
+先介绍几个类和接口：
+DispatcherServlet: springmvc中的前端控制器，它继承自 HttpServlet，遵循 Servlet 里的“init-service-destroy”三个阶段，主要职责如下：
+	1、文件上传解析，如果请求类型是multipart将通过MultipartResolver进行文件上传解析
+	2、通过HandlerMapping，将请求映射到处理器（返回一个HandlerExecutionChain，它包括一个处理器、多个HandlerInterceptor拦截器）
+	3、通过HandlerAdapter支持多种类型的处理器(HandlerExecutionChain中的处理器)
+	4、通过ViewResolver解析逻辑视图名到具体视图实现
+	5、本地化解析
+	6、渲染具体的视图等
+	7、如果执行过程中遇到异常将交给HandlerExceptionResolver来解析。
+HandlerMapping: 保存着URL和Controller之间的映射关系，主要有三部分组成：HandlerMapping映射注册、根据url获取对应的处理器、拦截器注册。
+HandlerAdapter: 处理器映射器，作用就是确定调用具体类的具体方法，并且构造方法参数和返回值，对用户发来的请求来进行处理。
+HandlerInterceptor: 处理器拦截器。
+
+springmvc接收请求的具体过程：
+第一步：发起请求到前端控制器(DispatcherServlet)
+第二步：前端控制器请求HandlerMapping查找 Handler （可以根据xml配置、注解进行查找）
+第三步：处理器映射器HandlerMapping向前端控制器返回Handler，HandlerMapping会把请求映射为HandlerExecutionChain对象（包含一个Handler处理器（页面控制器）对象，多个HandlerInterceptor拦截器对象），通过这种策略模式，很容易添加新的映射策略
+第四步：前端控制器调用处理器适配器去执行Handler
+第五步：处理器适配器HandlerAdapter将会根据适配的结果去执行Handler
+第六步：Handler执行完成给适配器返回ModelAndView
+第七步：处理器适配器向前端控制器返回ModelAndView （ModelAndView是springmvc框架的一个底层对象，包括 Model和view）
+第八步：前端控制器请求视图解析器去进行视图解析 （根据逻辑视图名解析成真正的视图(jsp)），通过这种策略很容易更换其他视图技术，只需要更改视图解析器即可
+第九步：视图解析器向前端控制器返回View
+第十步：前端控制器进行视图渲染 （视图渲染将模型数据(在ModelAndView对象中)填充到request域）
+第十一步：前端控制器向用户响应结果
 
 
 下面讲几个标签各自的作用和比较：
@@ -15,9 +39,13 @@ mvc:annotation-driven declares explicit support for annotation-driven MVC contro
 
 <context:annotation-config> is used to activate annotations in beans already registered in the application context (no matter if they were defined with XML or by package scanning).
 <context:component-scan> can also do what <context:annotation-config> does but <context:component-scan> also scans packages to find and register beans within the application context.
-这两个标签经常被用来比较，这是stackoverflow上一段精炼回答，另外还给出了例子，URL: https://stackoverflow.com/questions/7414794/difference-between-contextannotation-config-vs-contextcomponent-scan
-mvc:annotation-driven的作用就是告诉容器，接收到的请求都采用annotation的方式来进行分发，这好像springmvc的默认分发方式。这个标签还有几个其他的功能，具体的我还在研究中。
-springmvc还会有几种分发方式，后面我有扩展讲解并举例。
+这两个标签经常被用来比较，这是stackoverflow上一段精炼回答。
+
+mvc:annotation-driven的作用就是告诉springmvc启用注解驱动来处理请求，这个标签和下面的配置等价：
+<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping" />
+<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter" />
+<bean class="org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver" />
+springmvc除了注解驱动还会有几种分发方式，后面我有扩展讲解并举例。
 
 <context:component-scan>还有两个子标签：context:include-filter, context:exclude-filter
 include表示需要扫描并注册指定的类（白名单过滤）
@@ -66,7 +94,18 @@ springmvc除了通过annotation来映射handler，还有三种方式：
 上面两种方式都是把一个Controller当作一个servlet，它会重写父类的一个方法 protected ModelAndView handleRequestInternal(HttpServletRequest request, HttpServletResponse response)，接收url是 /queryFund 过来的请求，在重写的方法里处理业务逻辑。这两种方法都是一个Controller对应一个url，很明显没有annotation的方式好用，所以基本不会用到，还有一种方法已经过期了，这里也不提了。
 
 
-常见问题：
-1、上面三个标签各自的作用，与相互比较
+常见面试问题：
+1、上面三个标签各自的作用，与相互比较？
 2、为什么要搞一个子容器出来，web中也用同一个父容器不行么？
 答：理论上也是可行的，但是为了系统的扩展性，以及各个组件的解耦，也就分离开了，一般把两个结合起来使用
+3、springmvc通过什么返回页面？
+4、springmvc主要的一些注解和作用？
+5、springmvc处理请求的过程？
+6、springmvc中的核心类和接口，以及他们的作用？
+
+
+参考博客：
+https://blog.csdn.net/wangbiao007/article/details/50524268
+https://blog.csdn.net/wangbiao007/article/details/50547020
+https://www.cnblogs.com/fangjian0423/p/springMVC-interceptor.html
+https://stackoverflow.com/questions/7414794/difference-between-contextannotation-config-vs-contextcomponent-scan
