@@ -1,0 +1,81 @@
+本文主题：使用JAXB
+
+xml格式是大部分框架的默认配置模式，本文主要自定义xsd，并解析其相应的xml文件
+
+xsd文件定义如下：
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://www.jiehang.com/autumn/schema/components"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.jiehang.com/autumn/schema/components"
+	elementFormDefault="qualified">
+	<xsd:element name="components" type="ComponentsConfig" />
+	<xsd:complexType name="ComponentsConfig">
+		<xsd:sequence>
+			<xsd:element name="component" type="ComponentConfig" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ComponentConfig">
+		<xsd:sequence>
+			<xsd:element name="property" type="PropertyConfig" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+		<xsd:attribute name="name" type="xsd:string" />
+		<xsd:attribute name="class" type="xsd:string" />
+	</xsd:complexType>
+	<xsd:complexType name="PropertyConfig" mixed="true">
+		<xsd:attribute name="name" use="required" type="xsd:QName" />
+	</xsd:complexType>
+</xsd:schema> 
+
+在eclipse中可以根据xsd文件生成JAXB classes文件。
+
+定义xml文件：
+<?xml version="1.0" encoding="UTF-8"?>
+<components xmlns="http://www.jiehang.com/autumn/schema/components"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.jiehang.com/autumn/schema/components
+                http://www.jiehang.com/autumn/schema/components/autumn-components-1.0.xsd">
+	<component name="simpleController" class="com.jiehang.core.test.bean.SimpleController">
+		<property name="fundService">fundService</property>
+	</component>
+	<component name="fundService" class="com.jiehang.core.test.bean.FundServiceImpl">
+		<property name="fundDao">fundDao</property>
+	</component>
+	<component name="fundDao" class="com.jiehang.core.test.bean.FundDaoImpl">
+	</component>
+	<component name="simpleProcessor" class="com.jiehang.core.test.bean.SimpleProcessor">
+		<property name="guidService">guidService</property>
+	</component>
+	<component name="guidService" class="com.jiehang.core.test.bean.GuidServiceImpl">
+		<property name="guidDao">guidDao</property>
+		<property name="tradeDao">tradeDao</property>
+	</component>
+	<component name="guidDao" class="com.jiehang.core.test.bean.GuidDaoImpl">
+	</component>
+	<component name="tradeDao" class="com.jiehang.core.test.bean.TradeDaoImpl">
+	</component>
+</components>
+
+使用jaxb解析xml生成对象树的代码：
+public ComponentsConfig loadConfigurationForXml(String configfile) {
+		InputStream inputStream = null;
+		ComponentsConfig componentsConfig = null;
+		try {
+   		SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+			inputStream = ConfigurationManager.class.getClassLoader().getResourceAsStream(FrameworkConstants.XSD_FILE);
+			StreamSource streamSource = new StreamSource(inputStream);
+			Schema schema = schemaFactory.newSchema(streamSource);
+			JAXBContext jaxbContext = JAXBContext.newInstance(ComponentsConfig.class);
+			Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
+			unmarshaller.setSchema(schema);
+			inputStream = ConfigurationManager.class.getClassLoader().getResourceAsStream(configfile);
+			streamSource = new StreamSource(inputStream);
+			componentsConfig = (ComponentsConfig)unmarshaller.unmarshal(streamSource);
+		} catch (JAXBException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SAXException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return componentsConfig;
+	}
+
