@@ -1,3 +1,5 @@
+本文主题：spring中事务的传播行为讨论及spring获取connection的源码剖析
+
 
 如果事物的传播特性为REQUIRES_NEW：
 当单线程中出现嵌套事务的情况(比如，在service层上定义了事务，service1的save方法调用了另一个service2的delete方法)，那这就是两个独立的事务，如果service2的内层事务中出现了某个异常，内层事务当然就会rollback；如果这个异常没有被捕获，它就会向上扩散到外层事务中，如果外层事务中捕获了该异常，并且外层事务中没有其他未捕获异常，那外层事务就可以commit，但是如果外层事务中没有捕获内层事务中的异常，异常会在本地线程中一直向外抛出，那外层事务也会rollback。如果外层事务中有自己的异常，只要不影响该线程继续执行，也不会影响到内层事务。
@@ -14,3 +16,37 @@
 4、当Spring事务方法运行时，就产生一个事务上下文，它在本事务执行线程中对同一个数据源绑定了一个唯一的数据连接，所有被该事务上下文传播的方法都共享这个连接。要获取这个连接，如要使用Spirng的资源获取工具类DataSourceUtils。
 5、事务管理上下文就好比一个盒子，所有的事务都放在里面。如果在某个事务方法中开启一个新线程，新线程中执行另一个事务方法，则由上面第二条可知这两个方法运行于两个独立的事务中，但是：如果使用DataSourcesUtils，则新线程中的方法可以从事务上下文中获取原线程中的数据连接！
 6、上面第5点的最后这一句：如果使用DataSourcesUtils，则新线程中的方法可以从事务上下文中获取原线程中的数据连接，我感觉不太对，新线程开启的新事务就表示它获取到的是新的数据连接，还怎么能拿到原线程中的连接呢？有待分析源码
+
+
+
+源码简单分析：
+首先spring通过aop管理事务的时候，需要先获取一个connection，它会用这个connection开启一个事务
+TransactionSynchronizationManager.java中的源码：
+	public static void bindResource(Object key, Object value) throws IllegalStateException {
+    // 这里的key是dataSource, value是ConnectionHolder，connectionHolder中有connection
+		Object actualKey = TransactionSynchronizationUtils.unwrapResourceIfNecessary(key);
+		Assert.notNull(value, "Value must not be null");
+		Map<Object, Object> map = resources.get(); // resources是一个本地线程化Map对象，这里开始会get到一个null
+		// set ThreadLocal Map if none found
+		if (map == null) {
+			map = new HashMap<Object, Object>();
+			resources.set(map);
+		}
+		Object oldValue = map.put(actualKey, value);  //这里会给这个本地线程化map赋值，这个map在dao里面拿connectin的时候还会用的。
+		// Transparently suppress a ResourceHolder that was marked as void...
+		if (oldValue instanceof ResourceHolder && ((ResourceHolder) oldValue).isVoid()) {
+			oldValue = null;
+		}
+		if (oldValue != null) {
+			throw new IllegalStateException("Already value [" + oldValue + "] for key [" +
+					actualKey + "] bound to thread [" + Thread.currentThread().getName() + "]");
+		}
+		if (logger.isTraceEnabled()) {
+			logger.trace("Bound value [" + value + "] for key [" + actualKey + "] to thread [" +
+					Thread.currentThread().getName() + "]");
+		}
+	}
+
+
+
+
