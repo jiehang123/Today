@@ -1,0 +1,101 @@
+本文主题：项目中日志记录的方式
+
+使用log4j来记录日志：
+以注释的方式来讲解下面的配置 log4j.properties：
+
+### 设置级别和目的地(这里多个目的地)，日志级别下面有详解; CONSOLE,fileLog是我取的名字，方便下面使用
+log4j.rootLogger = DEBUG,CONSOLE,fileLog
+#### org.easyframework.blog.dao.impl是我的包名，也就是在说在这个包记录日志的时候，是只记录debug及以上级别的日志
+#log4j.logger.org.easyframework.blog.dao.impl=DEBUG
+
+### 在console输出日志的设置
+### 给出配置信息输出目的地的appender，通俗点说就是表明输出方式，有5中方式可供选择，见下面log4j.appender.appender详解
+log4j.appender.CONSOLE = org.apache.log4j.ConsoleAppender
+log4j.appender.CONSOLE.Target = System.out
+### 日志输出布局，有4种方式可供选择，见详解
+log4j.appender.CONSOLE.layout = org.apache.log4j.PatternLayout
+### 这是配合上面这个layout来使用的，见详解
+log4j.appender.CONSOLE.layout.ConversionPattern = %d{yyy-MM-dd HH:mm:ss,SSS} %5p %c:%L [%t:%r]- %m%n
+
+### 文件输出日志的设置，根据日期配置
+### 设置每天生成一个日志文件，通过下面的DatePattern可以修改成多久生成一个日志文件
+#log4j.appender.fileLog = org.apache.log4j.DailyRollingFileAppender
+#log4j.appender.fileLog.File =D\:\\eclipse_workspace\\TestDemo\\src\\logs\\log4j.txt
+#log4j.appender.fileLog.Append = true
+#log4j.appender.fileLog.Threshold = DEBUG
+### 每小时生产一个日志文件，见详解
+#log4j.appender.fileLog.DatePattern = '.'yyyy-MM-dd-HH
+#log4j.appender.fileLog.layout = org.apache.log4j.PatternLayout
+#log4j.appender.fileLog.layout.ConversionPattern = %d{yyy-MM-dd HH:mm:ss,SSS} %5p %c:%L [%t:%r]- %m%n
+
+### 文件输出日志的设置，根据日志大小
+log4j.appender.fileLog = org.apache.log4j.RollingFileAppender
+log4j.appender.fileLog.File =D\:\\eclipse_workspace\\TestDemo\\src\\logs\\log4j.txt
+log4j.appender.fileLog.Append = true
+log4j.appender.fileLog.Threshold = DEBUG
+### 文件大于100KB的时候生成一个新的文件
+log4j.appender.fileLog.MaxFileSize  = 100KB
+log4j.appender.fileLog.MaxBackupIndex = 100
+log4j.appender.fileLog.layout = org.apache.log4j.PatternLayout
+log4j.appender.fileLog.layout.ConversionPattern = %d{yyy-MM-dd HH:mm:ss,SSS} %5p %c:%L [%t:%r]- %m%n
+
+
+上面只是一个例子的讲解，下面给出更加详细的说明：
+格式：log4j.appender.appender = 1 2 3 4 5
+log4j提供了5中方式：
+org.apache.log4j.ConsoleAppender（控制台），
+org.apache.log4j.FileAppender（文件），
+org.apache.log4j.DailyRollingFileAppender（每天产生一个日志文件），
+org.apache.log4j.RollingFileAppender（文件大小到达指定尺寸的时候产生一个新的文件），可通过 log4j.appender.R.MaxFileSize=100KB设置文件大小，还可通过 log4j.appender.R.MaxBackupIndex=1设置为保存一个备份文件。
+org.apache.log4j.WriterAppender（将日志信息以流格式发送到任意指定的地方）
+
+格式：log4j.appender.fileLog.layout = 1 2 3 4
+log4j提供了4中输出布局
+org.apache.log4j.HTMLLayout（以HTML表格形式布局），
+org.apache.log4j.PatternLayout（可以灵活地指定布局模式），
+org.apache.log4j.SimpleLayout（包含日志信息的级别和信息字符串），
+org.apache.log4j.TTCCLayout（包含日志产生的时间、线程、类别等等信息） 
+我们一般使用PatternLayout，然后自己指定日志信息输出格式
+
+格式：log4j.appender.fileLog.layout.ConversionPattern = 
+使用PatternLayout时，通过这个配置来指定输出格式
+日志输出格式，所用到的参数如下，按需添加：
+%p: 输出日志信息优先级，即DEBUG，INFO，WARN，ERROR，FATAL,
+%d: 输出日志时间点的日期或时间，默认格式为ISO8601，也可以在其后指定格式，比如：%d{yyy MMM dd HH:mm:ss,SSS}，输出类似：2002年10月18日 22：10：28，921
+%r: 输出自应用启动到输出该log信息耗费的毫秒数
+%c: 输出日志信息所属的类目，通常就是所在类的全名
+%t: 输出产生该日志事件的线程名
+%l: 输出日志事件的发生位置，相当于%C.%M(%F:%L)的组合,包括类目名、发生的线程，以及在代码中的行数。举例：Testlog4.main(TestLog4.java:10)
+%x: 输出和当前线程相关联的NDC(嵌套诊断环境),尤其用到像java servlets这样的多客户多线程的应用中。
+%%: 输出一个”%”字符
+%F: 输出日志消息产生时所在的文件名称
+%L: 输出代码中的行号
+%m: 输出代码中指定的消息,产生的日志具体信息
+%n: 输出一个回车换行符，Windows平台为”\r\n”，Unix平台为”\n”输出日志信息换行
+可以在%与模式字符之间加上修饰符来控制其最小宽度、最大宽度、和文本的对齐方式。如：
+1)%20c：指定输出category的名称，最小的宽度是20，如果category的名称小于20的话，默认的情况下右对齐。
+2)%-20c:指定输出category的名称，最小的宽度是20，如果category的名称小于20的话，”-”号指定左对齐。
+3)%.30c:指定输出category的名称，最大的宽度是30，如果category的名称大于30的话，就会将左边多出的字符截掉，但小于30的话也不会有空格。
+4)%20.30c:如果category的名称小于20就补空格，并且右对齐，如果其名称长于30字符，就从左边交远销出的字符截掉。
+
+格式：log4j.appender.fileLog.DatePattern = 
+设置多久生成一个配置文件，配置如下：
+’.’yyyy-MM  每月
+’.’yyyy-ww 每周
+’.’yyyy-MM-dd 每天
+’.’yyyy-MM-dd-a 每天两次
+’.’yyyy-MM-dd-HH 每小时
+’.’yyyy-MM-dd-HH-mm 每分钟
+
+格式：log4j.rootLogger = [ level ] , appenderName, appenderName, …
+appenderName自己设定，日志级别可以有如下选择：
+trace： 是追踪，就是程序推进以下，你就可以写个trace输出，所以trace应该会特别多，不过没关系，我们可以设置最低日志级别不让他输出。
+debug： 调试么，我一般就只用这个作为最低级别，trace压根不用。是在没办法就用eclipse或者idea的debug功能就好了么。
+info： 输出一下你感兴趣的或者重要的信息，这个用的最多了。
+warn： 有些信息不是错误信息，但是也要给程序员的一些提示，类似于eclipse中代码的验证不是有error 和warn（不算错误但是也请注意，比如以下depressed的方法）。
+error： 错误信息。用的也比较多。
+fatal： 级别比较高了。重大错误，这种级别你可以直接停止程序了，是不应该出现的错误么！不用那么紧张，其实就是一个程度的问题。
+
+上面是使用log4j来控制日志输出时的一些基本配置
+
+
