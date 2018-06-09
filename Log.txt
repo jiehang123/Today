@@ -80,12 +80,12 @@ org.apache.log4j.TTCCLayout（包含日志产生的时间、线程、类别等�
 
 格式：log4j.appender.fileLog.DatePattern = 
 设置多久生成一个配置文件，配置如下：
-’.’yyyy-MM  每月
-’.’yyyy-ww 每周
-’.’yyyy-MM-dd 每天
-’.’yyyy-MM-dd-a 每天两次
-’.’yyyy-MM-dd-HH 每小时
-’.’yyyy-MM-dd-HH-mm 每分钟
+'.'yyyy-MM  每月
+'.'yyyy-ww 每周
+'.'yyyy-MM-dd 每天
+'.'yyyy-MM-dd-a 每天两次
+'.'yyyy-MM-dd-HH 每小时
+'.'yyyy-MM-dd-HH-mm 每分钟
 
 格式：log4j.rootLogger = [ level ] , appenderName, appenderName, …
 appenderName自己设定，日志级别可以有如下选择：
