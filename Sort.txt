@@ -1,0 +1,89 @@
+本文主题：排序算法的思想，代码实现与复杂度总结
+
+交换排序算法：冒泡排序，快速排序
+插入排序算法：简单插入排序，希尔排序
+选择排序算法：简单选择排序，堆排序
+归并排序算法：二路归并排序，多路归并排序
+
+1、冒泡排序（Bubble Sort）
+冒泡排序是一种简单的排序算法。它重复地走访过要排序的数列，一次比较两个元素，如果它们的顺序错误就把它们交换过来。走访数列的工作是重复地进行直到没有再需要交换，也就是说该数列已经排序完成。这个算法的名字由来是因为越小的元素会经由交换慢慢“浮”到数列的顶端。 
+
+算法描述：
+比较相邻的元素。如果第一个比第二个大，就交换它们两个；
+对每一对相邻元素作同样的工作，从开始第一对到结尾的最后一对，这样在最后的元素应该会是最大的数；
+针对所有的元素重复以上的步骤，除了最后一个；
+重复步骤1~3，直到排序完成。
+
+代码实现：
+	public static int[] bubbleSort(int[] args) {
+		int tem;
+		for(int i=0; i<args.length-1; i++) {
+			for(int j=0; j< args.length-1-i; j++) {
+        if(args[j] > args[j+1]) {
+          tem = args[j];
+          args[j] = args[j+1];
+          args[j+1] = tem;
+        }
+			}
+		}
+		return args;
+	}
+
+
+2、选择排序（Selection Sort）
+选择排序(Selection-sort)是一种简单直观的排序算法。它的工作原理：首先在未排序序列中找到最小（大）元素，存放到排序序列的起始位置，然后，再从剩余未排序元素中继续寻找最小（大）元素，然后放到已排序序列的末尾。以此类推，直到所有元素均排序完毕。 
+算法描述：
+初始状态：无序区为R[1..n]，有序区为空；
+第i趟排序(i=1,2,3…n-1)开始时，当前有序区和无序区分别为R[1..i-1]和R(i..n）。该趟排序从当前无序区中-选出关键字最小的记录 R[k]，将它与无序区的第1个记录R交换，使R[1..i]和R[i+1..n)分别变为记录个数增加1个的新有序区和记录个数减少1个的新无序区；
+n-1趟结束，数组有序化了。
+
+代码实现：
+	public static int[] selectionSort(int[] args) {
+		int minInx;
+		int tem;
+		for(int i=0; i<args.length; i++) {
+			minInx = i;
+			for(int j=i+1; j<args.length; j++) {
+				if(args[minInx] > args[j]) {
+					minInx = j;
+				}
+			}
+			tem = args[minInx];
+			args[minInx] = args[i];
+			args[i] = tem;
+		}
+		return args;
+	}
+
+
+3、插入排序（Insertion Sort）
+表现最稳定的排序算法之一，因为无论什么数据进去都是O(n2)的时间复杂度，所以用到它的时候，数据规模越小越好。唯一的好处可能就是不占用额外的内存空间了吧。理论上讲，选择排序可能也是平时排序一般人想到的最多的排序方法了吧。
+一般来说，插入排序都采用in-place在数组上实现。具体算法描述如下：
+从第一个元素开始，该元素可以认为已经被排序；
+取出下一个元素，在已经排序的元素序列中从后向前扫描；
+如果该元素（已排序）大于新元素，将该元素移到下一位置；
+重复步骤3，直到找到已排序的元素小于或者等于新元素的位置；
+将新元素插入到该位置后；
+重复步骤2~5。
+
+代码实现：
+	public static int[] insertionSort(int[] args) {
+	    int preIndex, current;
+	    for (int i=1; i<args.length; i++) {
+	        preIndex = i - 1;
+	        current = args[i];
+	        while (preIndex >= 0 && args[preIndex] > current) {
+	            args[preIndex + 1] = args[preIndex];
+	            preIndex--;
+	        }
+	        args[preIndex + 1] = current;
+	    }
+	    return args;
+	}
+
+4、
+5、
+6、
+7、
+8、
+9、
