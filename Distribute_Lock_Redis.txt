@@ -27,8 +27,8 @@ public class DistributeLockRight {
 
 	private static final String LOCK_SUCCESS = "OK";
 	private static final String RELEASE_SUCCESS = "OK";
-  private static final String SET_IF_NOT_EXIST = "NX";
-  private static final String SET_WITH_EXPIRE_TIME = "PX";
+	private static final String SET_IF_NOT_EXIST = "NX";
+  	private static final String SET_WITH_EXPIRE_TIME = "PX";
 	
 	private JedisPool jedisPool;
   
