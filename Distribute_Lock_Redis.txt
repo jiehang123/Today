@@ -1,4 +1,4 @@
-本文主题：分别利用redis和zookeeper实现分布式锁
+本文主题：利用redis实现分布式锁
 
 概述：
 目前几乎很多大型网站及应用都是分布式部署的，分布式场景中的数据一致性问题一直是一个比较重要的话题。分布式的CAP理论告诉我们“任何一个分布式系统都无法同时满足一致性（Consistency）、可用性（Availability）和分区容错性（Partition tolerance），最多只能同时满足两项。”所以，很多系统在设计之初就要对这三者做出取舍。在互联网领域的绝大多数的场景中，都需要牺牲强一致性来换取系统的高可用性，系统往往只需要保证“最终一致性”，只要这个最终时间是在用户可以接受的范围内即可。
@@ -71,27 +71,27 @@ public class DistributeLockRight {
 
 
 注意：下面给出错误加锁方式的示例：
-	public String LockWithTimeOut(String lockName, long acquiredTime, long timeOut) {
-		Jedis jedis = jedisPool.getResource();
-		String identifier = UUID.randomUUID().toString();
-		long currentTime = System.currentTimeMillis();
-		while (System.currentTimeMillis() < currentTime + acquiredTime) {
-			if (jedis.setnx(lockName, identifier) == 1) {
+public String LockWithTimeOut(String lockName, long acquiredTime, long timeOut) {
+	Jedis jedis = jedisPool.getResource();
+	String identifier = UUID.randomUUID().toString();
+	long currentTime = System.currentTimeMillis();
+	while (System.currentTimeMillis() < currentTime + acquiredTime) {
+		if (jedis.setnx(lockName, identifier) == 1) {
 //				int i = 8/0; 	//如果这里出现了异常，这个锁就会因为没有设置过期时间而变成死锁
-				jedis.expire(lockName, (int) (timeOut / 1000));
-				System.out.println(Thread.currentThread().getName() + "获得了锁--DistributeLockWrong");
-				return jedis.get(lockName);
-			}
-		}
-		//如果因为前面某个线程发生异常而产生了死锁，新来的线程请求超时后会检查这个key有没有设置过期时间，如果没有就加上，这里至少防止了死锁不会一直存在的问题。
-		if (jedis.ttl(lockName) == -1) {
 			jedis.expire(lockName, (int) (timeOut / 1000));
+			System.out.println(Thread.currentThread().getName() + "获得了锁--DistributeLockWrong");
+			return jedis.get(lockName);
 		}
-		System.out.println(Thread.currentThread().getName() + "时间到了没拿到锁--DistributeLockWrong");
-		return identifier;
 	}
+	//如果因为前面某个线程发生异常而产生了死锁，新来的线程请求超时后会检查这个key有没有设置过期时间，如果没有就加上，这里至少防止了死锁不会一直存在的问题。
+	if (jedis.ttl(lockName) == -1) {
+		jedis.expire(lockName, (int) (timeOut / 1000));
+	}
+	System.out.println(Thread.currentThread().getName() + "时间到了没拿到锁--DistributeLockWrong");
+	return identifier;
+}
   
-这个错误示例，会因为程序异常而产生死锁，不过后面紧跟着的一个请求超时的线程会立刻给这个锁再设置一个过期时间，然后时间到了可以自动解锁，但是这里已经违反了锁的实现的几个条件(1、发生了死锁；2、并不是他自己设置的过期时间而解锁), 而且如果后来的线程请求没有超时，会一直循环尝试获取锁。
+这个错误示例，会因为程序异常而产生死锁，不过后面紧跟着的一个请求超时的线程会立刻给这个锁再设置一个过期时间，然后时间到了可以自动解锁，但是这里已经违反了锁的实现的几个条件(1、发生了死锁；2、并不是当前线程自己设置的过期时间而解锁)。而且，如果后来的线程请求没有超时，会一直循环尝试获取锁。
 
 注意：下面给出错误的解锁方式的示例：
 public static void wrongReleaseLock2(Jedis jedis, String lockKey, String requestId) {
