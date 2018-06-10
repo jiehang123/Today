@@ -16,7 +16,7 @@
 2、Redis命令对此支持较好，实现起来比较方便
 
 
-这里直接给出代码实现：
+这里直接给出正确的加锁解锁代码实现：
 
 import java.util.Collections;
 import java.util.UUID;
@@ -72,7 +72,7 @@ public class DistributeLockRight {
 可以看到，我们解锁只需要两行代码就搞定了！第一行代码，我们写了一个简单的Lua脚本代码，第二行代码，我们将Lua代码传到jedis.eval()方法里，并使参数KEYS[1]赋值为lockKey，ARGV[1]赋值为identify。eval()方法是将Lua代码交给redis服务端执行。
 那么这段Lua代码的功能是什么呢？其实很简单，首先获取锁对应的value值，检查是否与identify相等，如果相等则删除锁（解锁）。那么为什么要使用Lua语言来实现呢？因为要确保上述操作是原子性的。那么为什么执行eval()方法可以确保原子性，源于redis的特性，详情可以去参看redis的官方文档。
 
-注意：下面给出错误加锁方式的示例：
+注意：下面给出一种错误加锁方式的示例：
 public String LockWithTimeOut(String lockName, long acquiredTime, long timeOut) {
 	Jedis jedis = jedisPool.getResource();
 	String identifier = UUID.randomUUID().toString();
@@ -93,7 +93,45 @@ public String LockWithTimeOut(String lockName, long acquiredTime, long timeOut) 
 	return identifier;
 }
   
-这个错误示例，会因为程序异常而产生死锁，不过后面紧跟着的一个请求超时的线程会立刻给这个锁再设置一个过期时间，然后时间到了可以自动解锁，但是这里已经违反了锁的实现的几个条件(1、发生了死锁；2、并不是当前线程自己设置的过期时间而解锁)。而且，如果后来的线程请求没有超时，会一直循环尝试获取锁。
+这个错误示例，会因为程序异常而产生死锁，不过后面紧跟着的一个请求超时的线程会立刻给这个锁再设置一个过期时间，然后时间到了可以自动解锁，但是这里已经违反了锁的实现的几个条件(1、发生了死锁; 2、并不是当前线程自己设置的过期时间而解锁)。而且，如果后来的线程请求没有超时，会一直循环尝试获取锁。
+
+
+下面给出另一种错误加锁方式的示例：
+public static boolean wrongGetLock2(Jedis jedis, String lockKey, int expireTime) {
+    long expires = System.currentTimeMillis() + expireTime;
+    String expiresStr = String.valueOf(expires);
+    // 如果当前锁不存在，返回加锁成功
+    if (jedis.setnx(lockKey, expiresStr) == 1) {
+        return true;
+    }
+    // 如果锁存在，获取锁的过期时间
+    String currentValueStr = jedis.get(lockKey);
+    if (currentValueStr != null && Long.parseLong(currentValueStr) < System.currentTimeMillis()) {
+        // 锁已过期，获取上一个锁的过期时间，并设置现在锁的过期时间
+        String oldValueStr = jedis.getSet(lockKey, expiresStr);
+        if (oldValueStr != null && oldValueStr.equals(currentValueStr)) {
+            // 考虑多线程并发的情况，只有一个线程的设置值和当前值相同，它才有权利加锁
+            return true;
+        }
+    }
+    // 其他情况，一律返回加锁失败
+    return false;
+}
+
+这个错误示例比较难以发现，jedis.setnx(key, value)命令实现加锁，其中key是锁，value是锁的过期时间; jedis.getSet(key, value)，这个命令会首先拿到key中已经对应的oldValue，然后将oldValue替换为新的value
+执行过程：首先获取锁，如果成功直接返回true，如果失败，就获取锁的过期时间，如果锁已经过期，就设置新的过期时间，然后返回true
+假设有下面的场景：
+A线程设置的锁的value为8:03
+到8:04了，A线程还没有释放锁，现在B和C线程都过来了，然后B和C都拿到currentValueStr这个8:03的时间，他俩都发现A的锁已经过期了
+B线程通过getSet改变了锁的value为8:06，然后得到oldValueStr为8:03
+现在C线程也通过getSet改变了锁的value为8:07，然后得到oldValueStr为8:06,
+他俩都进行currentValueStr和oldValueStr的比较，显然B线程能成功，C线程失败了，所以B线程返回true，C线程返回false
+
+所以问题来了：
+1、由于是客户端自己生成过期时间，所以需要强制要求分布式下每个客户端的时间必须同步
+2、当锁过期的时候，如果多个客户端同时执行jedis.getSet()方法，那么虽然最终只有一个客户端可以加锁，但是这个客户端的锁的过期时间可能被后面的客户端覆盖。比如上面场景中的例子，B虽然获取了锁，但是本来B设置的过期时间为8:06，却被C修改为8:07了，这显然是不合理的。
+3. 锁不具备拥有者标识，即任何客户端都可以解锁。
+
 
 注意：下面给出错误的解锁方式的示例：
 public static void wrongReleaseLock2(Jedis jedis, String lockKey, String requestId) {
