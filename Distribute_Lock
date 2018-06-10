@@ -1,0 +1,97 @@
+本文主题：分别利用redis和zookeeper实现分布式锁
+
+概述：
+目前几乎很多大型网站及应用都是分布式部署的，分布式场景中的数据一致性问题一直是一个比较重要的话题。分布式的CAP理论告诉我们“任何一个分布式系统都无法同时满足一致性（Consistency）、可用性（Availability）和分区容错性（Partition tolerance），最多只能同时满足两项。”所以，很多系统在设计之初就要对这三者做出取舍。在互联网领域的绝大多数的场景中，都需要牺牲强一致性来换取系统的高可用性，系统往往只需要保证“最终一致性”，只要这个最终时间是在用户可以接受的范围内即可。
+在很多场景中，我们为了保证数据的最终一致性，需要很多的技术方案来支持，比如分布式事务、分布式锁等。
+分布式锁一般有三种实现方式：1. 数据库乐观锁；2. 基于Redis的分布式锁；3. 基于ZooKeeper的分布式锁。本篇博客将介绍第二种方式，基于Redis实现分布式锁。虽然网上已经有各种介绍Redis分布式锁实现的博客，然而他们的实现却有着各种各样的问题，这里列举一个正确和错误的范例。
+
+首先，为了确保分布式锁可用，我们至少要确保锁的实现同时满足以下四个条件：
+互斥性。在任意时刻，只有一个客户端能持有锁。
+不会发生死锁。即使有一个客户端在持有锁的期间崩溃而没有主动解锁，也能保证后续其他客户端能加锁。
+具有容错性。只要大部分的Redis节点正常运行，客户端就可以加锁和解锁。
+解铃还须系铃人。加锁和解锁必须是同一个客户端，客户端自己不能把别人加的锁给解了。
+
+选用Redis实现分布式锁原因：
+1、Redis有很高的性能
+2、Redis命令对此支持较好，实现起来比较方便
+
+
+这里直接给出代码实现：
+
+import java.util.Collections;
+import java.util.UUID;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+
+public class DistributeLockRight {
+
+	private static final String LOCK_SUCCESS = "OK";
+	private static final String RELEASE_SUCCESS = "OK";
+  private static final String SET_IF_NOT_EXIST = "NX";
+  private static final String SET_WITH_EXPIRE_TIME = "PX";
+	
+	private JedisPool jedisPool;
+  
+	public DistributeLockRight(JedisPool jedisPool) {
+		this.jedisPool = jedisPool;
+	}
+
+	public String LockWithTimeOut(String lockName, long acquiredTime, long timeOut) {
+		Jedis jedis = jedisPool.getResource();
+		String identify = UUID.randomUUID().toString();
+		long currentTime = System.currentTimeMillis();
+		while (System.currentTimeMillis() < currentTime + acquiredTime) {
+			if(LOCK_SUCCESS.equals(jedis.set(lockName, identify, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, timeOut))) {
+				System.out.println(Thread.currentThread().getName() + "获得了锁--DistributeLock_2");
+				return identify;
+			}
+		}
+		System.out.println(Thread.currentThread().getName() + "时间到了没拿到锁--DistributeLock_2");
+		return identify;
+	}
+	
+	public boolean releaseDistributedLock(String lockName, String identify) {
+		Jedis jedis = jedisPool.getResource();
+		String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+        Object result = jedis.eval(script, Collections.singletonList(lockName), Collections.singletonList(identify));
+        if (RELEASE_SUCCESS.equals(result))
+            return true;
+        return false;
+	}
+}
+
+可以看到，我们加锁就一行代码：jedis.set(String key, String value, String nxxx, String expx, int time)，这个set()方法一共有五个形参：
+第一个为key，我们使用key来当锁，因为key是唯一的。
+第二个为value，我们传的是identify，很多童鞋可能不明白，有key作为锁不就够了吗，为什么还要用到value？原因就是我们在上面讲到可靠性时，分布式锁要满足第四个条件解铃还须系铃人，通过给value赋值为identify，我们就知道这把锁是哪个请求加的了，在解锁的时候就可以有依据。identify可以使用UUID.randomUUID().toString()方法生成。
+第三个为nxxx，这个参数我们填的是NX，意思是SET IF NOT EXIST，即当key不存在时，我们进行set操作；若key已经存在，则不做任何操作；
+第四个为expx，这个参数我们传的是PX，意思是我们要给这个key加一个过期的设置，具体时间由第五个参数决定。
+第五个为time，与第四个参数相呼应，代表key的过期时间。
+总的来说，执行上面的set()方法就只会导致两种结果：1. 当前没有锁（key不存在），那么就进行加锁操作，并对锁设置个有效期，同时value表示加锁的客户端。2. 已有锁存在，不做任何操作。
+心细的童鞋就会发现了，我们的加锁代码满足我们可靠性里描述的三个条件。首先，set()加入了NX参数，可以保证如果已有key存在，则函数不会调用成功，也就是只有一个客户端能持有锁，满足互斥性。其次，由于我们对锁设置了过期时间，即使锁的持有者后续发生崩溃而没有解锁，锁也会因为到了过期时间而自动解锁（即key被删除），不会发生死锁。最后，因为我们将value赋值为identify，代表加锁的客户端请求标识，那么在客户端在解锁的时候就可以进行校验是否是同一个客户端。由于我们只考虑Redis单机部署的场景，所以容错性我们暂不考虑。
+
+
+注意：下面给出错误加锁方式的示例：
+	public String LockWithTimeOut(String lockName, long acquiredTime, long timeOut) {
+		Jedis jedis = jedisPool.getResource();
+		String identifier = UUID.randomUUID().toString();
+		long currentTime = System.currentTimeMillis();
+		while (System.currentTimeMillis() < currentTime + acquiredTime) {
+			if (jedis.setnx(lockName, identifier) == 1) {
+//				int i = 8/0; 	//如果这里出现了异常，这个锁就会因为没有设置过期时间而变成死锁
+				jedis.expire(lockName, (int) (timeOut / 1000));
+				System.out.println(Thread.currentThread().getName() + "获得了锁--DistributeLockWrong");
+				return jedis.get(lockName);
+			}
+		}
+		//如果因为前面某个线程发生异常而产生了死锁，新来的线程请求超时后会检查这个key有没有设置过期时间，如果没有就加上，这里至少防止了死锁不会一直存在的问题。
+		if (jedis.ttl(lockName) == -1) {
+			jedis.expire(lockName, (int) (timeOut / 1000));
+		}
+		System.out.println(Thread.currentThread().getName() + "时间到了没拿到锁--DistributeLockWrong");
+		return identifier;
+	}
+  
+这个错误示例，会因为程序异常而产生死锁，不过后面紧跟着的一个请求超时的线程会立刻给这个锁再设置一个过期时间，然后时间到了可以自动解锁，但是这里已经违反了锁的实现的几个条件(1、发生了死锁；2、并不是他自己设置的过期时间而解锁), 而且如果后来的线程请求没有超时，会一直循环尝试获取锁。
+
+下面给出另一个错误的示例：
+
