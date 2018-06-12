@@ -1,0 +1,121 @@
+﻿本文主题： 使用redis作为消息中间件实现发布与订阅功能
+
+发布/订阅模式能实现进程间通信，发布者向指定频道发布消息，订阅者可以订阅一个或多个频道，所有订阅该频道的订阅者都会收到消息。
+
+redis命令：
+PUBLISH channel message  		将信息 message 发送到指定的频道 channel 。
+SUBSCRIBE channel [channel ...]		订阅给定的一个或多个频道的信息。
+UNSUBSCRIBE [channel [channel ...]] 	指示客户端退订给定的频道。 注意：如果没有频道被指定，那么客户端使用 SUBSCRIBE 命令订阅的所有频道都会被退订。在这种情况下，命令会返回一个信息，告知客户端所有被退订的频道。
+
+下面我们使用java代码实现消息redis的发布与订阅功能，首先创建发布者与订阅者：publisher和subscriber：
+消息发布者：
+public class RedisMessagePublisher{
+    private RedisTemplate<String, Object> redisTemplate;
+    private ChannelTopic topic;
+    public RedisMessagePublisher() {
+    }
+    public RedisMessagePublisher(final RedisTemplate<String, Object> redisTemplate, final ChannelTopic topic) {
+        this.redisTemplate = redisTemplate;
+        this.topic = topic;
+    }
+    public void publish(final String message) {
+        redisTemplate.convertAndSend(topic.getTopic(), message);
+    }
+}
+
+消息订阅者：
+public class RedisMessageSubscriber implements MessageListener {	//这里是实现了spring-data里面的messageListener，注意这个不是jms里面的messageListener
+	public void onMessage(final Message message, final byte[] pattern) {
+		System.out.println("Message received: " + new String(message.getBody()));
+	}
+}
+
+代码就这么多，publisher发布消息，subscriber监听消息，可以看到subscriber并没有显示连接到redis上，那怎么订阅消息？因为我们这里是使用spring-data中的消息容器来进行监听，如果有多个订阅者，可以将subscriber都注册到容器中即可。
+下面是applicationContext.xml的配置信息：
+
+<!--创建一个名为hello-redis的channel-->
+<bean id="channel" class="org.springframework.data.redis.listener.ChannelTopic">
+	<constructor-arg value="hello-redis"/>
+</bean>
+	
+<!--创建redis连接池需要的参数-->
+<bean id="jedisConfig" class="redis.clients.jedis.JedisPoolConfig">
+	<property name="maxIdle" value="100" />
+	<property name="maxTotal" value="200" />
+	<property name="maxWaitMillis" value="5000" />
+	<property name="testOnBorrow" value="false" />
+</bean>
+
+<!--创建redis连接工厂-->
+<bean id="jedisConnectionFactory"
+	class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+	<property name="poolConfig" ref="jedisConfig" />
+	<property name="hostName" value="localhost" />
+	<property name="port" value="6379" />
+</bean>
+
+<!--spring封装的redisTemplate，对redis进行各种操作，类似jdbcTemplate-->
+<bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+	<property name="connectionFactory" ref="jedisConnectionFactory" />
+	<property name="valueSerializer" ref="stringRedisSerializer" />
+</bean>
+
+<!--存到redis的key value都需要序列化，这是spring提供的序列化方式-->
+<bean id="stringRedisSerializer" class="org.springframework.data.redis.serializer.StringRedisSerializer" />  
+
+<!--创建消息发布者，使用构造器注入redisTemplate和channel-->
+<bean id="messagePublisher" class="pubsub.redis.publisher.impl.RedisMessagePublisher">
+	<constructor-arg index="0" ref="redisTemplate" />
+	<constructor-arg index="1" ref="channel" />
+</bean>
+
+<!--创建消息订阅者-->
+<bean id="messageSubscriber" class="pubsub.redis.subscriber.RedisMessageSubscriber" />
+
+<!--创建消息监听器，将订阅者注入到其中-->
+<bean id="messageListener" class="org.springframework.data.redis.listener.adapter.MessageListenerAdapter">
+	<property name="delegate" ref="messageSubscriber" />
+</bean>
+
+<!--创建消息监听器容器，将redis连接工厂和消息监听器注入-->
+<bean id="redisContainer"
+	class="org.springframework.data.redis.listener.RedisMessageListenerContainer">
+	<property name="connectionFactory" ref="jedisConnectionFactory" />
+	<property name="messageListeners">
+		<map>
+			<entry key-ref="messageListener" value-ref="channel" />
+		</map>
+	</property>
+</bean>
+
+
+项目中如果只有publisher，就只需要配置到redisTemplate，而不需要配置publisher，listenerAdapter和Container
+同样，如果只有subscriber，也不需要创建redisTemplate和publisher
+因为这里我都是写在一个项目里面，所有applicationContext.xml里面都配置了
+
+接下来写一个测试类向channel中发布消息：
+public class RedisMessageTest {
+	private static ApplicationContext context;
+	public static void main(String[] args) {
+		context = new ClassPathXmlApplicationContext("classpath:applicationContext.xml");
+		RedisMessagePublisher redisMessagePublisher = (RedisMessagePublisher) context.getBean("messagePublisher");
+		redisMessagePublisher.publish("5555");
+	}
+}
+运行这个类，可以看到订阅者立刻就能收到消息并打印，如果打开redis终端并订阅该channel，同样可以看到有消息输出。
+
+简单比较一下redis和ActiveMQ:
+1、ActiveMQ支持JMS规范，支持多种消息协议，但是redis不支持
+2、ActiveMQ提供了消息持久化的功能，但是redis无法对消息进行持久化存储，一旦消息被发布，如果没有被订阅者订阅，消息就会丢失
+3、ActiveMQ提供了消息传输保障，当客户端连接超时或者事务回滚了，消息会被重新发送给客户端，redis没有提供传输保障
+
+总结
+ActiveMQ比redis提供了更加复杂和有保障的消息服务，毕竟redis本身并不是专门作为消息组件来使用的。但是如果项目中已经使用了redis那就没必要再使用ActiveMQ了，因为ActiveMQ的大部分功能我们也并没有用到过，redis的发布订阅功能应该就能满足需求了。另外，如果需要实现点对点的消息队列功能，也可以使用redis中的队列来实现，这里就不在举例了。
+
+
+
+我写的另外一篇关于ActiveMQ的博客：
+https://github.com/jiehang123/Today/blob/master/JMS_ActiveMQ.txt
+
+redis命令参考文档：
+http://doc.redisfans.com/
