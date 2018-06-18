@@ -1,0 +1,146 @@
+本文主题：java IO流学习总结
+
+一、编码：
+几种字符编码的历史：ASCII、Unicode和UTF-8编码的区别：
+最早只有127个字母被编码到计算机里，也就是大小写英文字母、数字和一些符号，这个编码表被称为ASCII编码，比如大写字母A的编码是65，小写字母z的编码是122。
+但是要处理中文显然一个字节是不够的，至少需要两个字节，而且还不能和ASCII编码冲突，所以，中国制定了GB2312编码，用来把中文编进去。
+你可以想得到的是，全世界有上百种语言，日本把日文编到Shift_JIS里，韩国把韩文编到Euc-kr里，各国有各国的标准，就会不可避免地出现冲突，结果就是，在多语言混合的文本中，显示出来会有乱码。
+因此，Unicode应运而生。Unicode把所有语言都统一到一套编码里，这样就不会再有乱码问题了。
+Unicode标准也在不断发展，但最常用的是用两个字节表示一个字符（如果要用到非常偏僻的字符，就需要4个字节）。现代操作系统和大多数编程语言都直接支持Unicode。
+新的问题又出现了：如果统一成Unicode编码，乱码问题从此消失了。但是，如果你写的文本基本上全部是英文的话，用Unicode编码比ASCII编码需要多一倍的存储空间，在存储和传输上就十分不划算。
+所以，本着节约的精神，又出现了把Unicode编码转化为“可变长编码”的UTF-8编码。UTF-8编码把一个Unicode字符根据不同的数字大小编码成1-6个字节，常用的英文字母被编码成1个字节，汉字通常是3个字节，只有很生僻的字符才会被编码成4-6个字节。如果你要传输的文本包含大量英文字符，用UTF-8编码就能节省空间。
+UTF-8编码有一个额外的好处，就是ASCII编码实际上可以被看成是UTF-8编码的一部分，所以，大量只支持ASCII编码的历史遗留软件可以在UTF-8编码下继续工作。
+
+二、字节与字符
+(1)"字节"的定义
+字节（Byte）是一种计量单位，表示数据量多少，它是计算机信息技术用于计量存储容量的一种计量单位。
+(2)"字符"的定义
+字符是指计算机中使用的文字和符号，比如1、2、3、汉、字、A、B、C、~！·#￥%……—*（）——+、等等。
+(3)"字节"与"字符"
+它们完全不是一个位面的概念，所以两者之间没有“区别”这个说法。不同编码里，字符和字节的对应关系不同：
+1、ASCII码中，一个英文字母（不分大小写）占一个字节的空间，一个中文汉字占两个字节的空间。一个二进制数字序列，在计算机中作为一个数字单元，一般为8位二进制数，换算为十进制。最小值0，最大值255。
+2、UTF-8编码中，一个英文字符等于一个字节，一个中文（含繁体）等于三个字节(偏僻字占四个字节)。
+3、Unicode编码中，一个英文等于两个字节，一个中文（含繁体）等于两个字节。
+符号：英文标点占一个字节，中文标点占两个字节。举例：英文句号“.”占1个字节的大小，中文句号“。”占2个字节的大小。
+4、UTF-16编码中，一个英文字母字符或一个汉字字符存储都需要2个字节（Unicode扩展区的一些汉字存储需要4个字节）。
+5、UTF-32编码中，世界上任何字符的存储都需要4个字节。
+
+三、IO流
+首先看流图结构：
+流的概念和作用：
+	流是一组有顺序的，有起点和终点的字节集合，是对数据传输的总称或抽象。即数据在两设备间的传输称为流，流的本质是数据传输，根据数据传输特性将流抽象为各种类，方便更直观的进行数据操作。
+IO流的分类：
+	根据处理数据类型的不同分为：字符流和字节流
+	根据数据流向不同分为：输入流和输出流
+字符流和字节流：
+	字符流的由来：因为数据编码的不同，而有了对字符进行高效操作的流对象。本质其实就是基于字节流读取时，去查了指定的码表。 字节流和字符流的区别：
+	读写单位不同：字节流以字节（8bit）为单位，字符流以字符为单位，根据码表映射字符，一次可能读多个字节。
+	处理对象不同：字节流能处理所有类型的数据（如图片、avi等），而字符流只能处理字符类型的数据。
+	字节流：一次读入或读出是8位二进制。
+	字符流：一次读入或读出是16位二进制。
+输入流和输出流：
+	输入流只能进行读操作，输出流只能进行写操作，程序中需要根据待传输数据的不同特性而使用不同的流。
+要搞清楚几个概念：字节流与字节流、节点流、处理流、转换流。
+	节点流：可以从或向一个特定的地方（节点）读写数据。如FileReader.
+	处理流：是对一个已存在的流的连接和封装，通过所封装的流的功能调用实现数据读写。如BufferedReader.处理流的构造方法总是要带一个其他的流对象做参数。一个流对象经过其他流的多次包装，称为流的链接。
+	常用的节点流： 　
+		文 件 FileInputStream FileOutputStrean FileReader FileWriter 文件进行处理的节点流。
+		字符串 StringReader StringWriter 对字符串进行处理的节点流。
+		数 组 ByteArrayInputStream ByteArrayOutputStream CharArrayReader CharArrayWriter 对数组进行处理的节点流（对应的不再是文件，而是内存中的一个数组）。
+		管 道 PipedInputStream PipedOutputStream PipedReaderPipedWriter对管道进行处理的节点流。
+	常用处理流：
+		缓冲流：BufferedInputStrean BufferedOutputStream BufferedReader BufferedWriter---增加缓冲功能，避免频繁读写硬盘。
+		转换流：InputStreamReader OutputStreamReader实现字节流和字符流之间的转换。
+		数据流 DataInputStream DataOutputStream 等-提供将基础数据类型写入到文件中，或者读取出来.
+
+设备上的数据无论是图片或者视频，文字，它们都以二进制存储的。二进制的最终都是以一个8位为数据单元进行体现，所以计算机中的最小数据单元就是字节。意味着，字节流可以处理设备上的所有数据，所以字节流一样可以处理字符数据。
+结论：只要是处理纯文本数据，就优先考虑使用字符流。除此之外都使用字节流。
+	
+四、例子：
+
+使用字符流读取和写入文本文件：
+
+import java.io.File;  
+import java.io.FileNotFoundException;  
+import java.io.FileReader;  
+import java.io.FileWriter;  
+import java.io.IOException;  
+  
+public class TestFileWriter {  
+  
+    public static void main(String[] args) throws Exception {  
+        writeToFile();  
+        readFromFile();  
+    }  
+  
+    /** 
+     * DOC 从文件里读取数据. 
+     *  
+     * @throws FileNotFoundException 
+     * @throws IOException 
+     */  
+    private static void readFromFile() throws FileNotFoundException, IOException {  
+        File file = new File("E:\\helloworld.txt");// 指定要读取的文件  
+        FileReader reader = new FileReader(file);// 获取该文件的输入流  
+        char[] bb = new char[1024];// 用来保存每次读取到的字符  
+        String str = "";// 用来将每次读取到的字符拼接，当然使用StringBuffer类更好  
+        int n;// 每次读取到的字符长度  
+        while ((n = reader.read(bb)) != -1) {  
+            str += new String(bb, 0, n);  
+        }  
+        reader.close();// 关闭输入流，释放连接  
+        System.out.println(str);  
+    }  
+  
+    /** 
+     * DOC 往文件里写入数据. 
+     *  
+     * @throws IOException 
+     */  
+    private static void writeToFile() throws IOException {  
+        String writerContent = "hello world,你好世界";// 要写入的文本  
+        File file = new File("E:\\helloworld.txt");// 要写入的文本文件  
+        if (!file.exists()) {// 如果文件不存在，则创建该文件  
+            file.createNewFile();  
+        }  
+        FileWriter writer = new FileWriter(file);// 获取该文件的输出流  
+        writer.write(writerContent);// 写内容  
+        writer.flush();// 清空缓冲区，立即将输出流里的内容写到文件里  
+        writer.close();// 关闭输出流，施放资源  
+    }  
+  
+} 
+
+
+使用字节流读取和写入图片文件：
+
+import java.io.File;  
+import java.io.FileInputStream;  
+import java.io.FileOutputStream;  
+  
+public class TestIOStream {  
+  
+    /** 
+     *  
+     * DOC 将F盘下的test.jpg文件，读取后，再存到E盘下面. 
+     *  
+     * @param args 
+     * @throws Exception 
+     */  
+    public static void main(String[] args) throws Exception {  
+        FileInputStream in = new FileInputStream(new File("F:\\test.jpg"));// 指定要读取的图片  
+        File file = new File("E:\\test.jpg");  
+        if (!file.exists()) {// 如果文件不存在，则创建该文件  
+            file.createNewFile();  
+        }  
+        FileOutputStream out = new FileOutputStream(new File("E:\\test.jpg"));// 指定要写入的图片  
+        int n = 0;// 每次读取的字节长度  
+        byte[] bb = new byte[1024];// 存储每次读取的内容  
+        while ((n = in.read(bb)) != -1) {  
+            out.write(bb, 0, n);// 将读取的内容，写入到输出流当中  
+        }  
+        out.close();// 关闭输入输出流  
+        in.close();  
+    }  
+  
+}  
