@@ -1,3 +1,90 @@
+本文主题：几种xml的解析方式与使用xsd验证xml的方法
+
+XML的解析方式分为四种：1、DOM解析；2、SAX解析；3、JDOM解析；4、DOM4J解析
+
+一、SAX解析
+SAX解析方式会逐行地去扫描XML文档，当遇到标签时会触发解析处理器，采用事件处理的方式解析XML (Simple API for XML) ，不是官方标准，但它是 XML 社区事实上的标准，几乎所有的 XML 解析器都支持它。
+优点是：在读取文档的同时即可对XML进行处理，不必等到文档加载结束，相对快捷。不需要加载进内存，因此不存在占用内存的问题，可以解析超大XML。
+缺点是：只能用来读取XML中数据，无法进行增删改
+
+SAX解析可分四个步骤进行： 
+1、得到xml文件对应的资源，可以是xml的输入流，文件和uri 
+2、得到SAX解析工厂（SAXParserFactory） 
+3、由解析工厂生产一个SAX解析器（SAXParser） 
+4、传入输入流和handler给解析器，调用parse()解析
+
+public static void main(String[] args) throws Exception {
+        //1.创建解析工厂
+		SAXParserFactory factory=SAXParserFactory.newInstance();
+        //2.得到解析器
+        SAXParser sp=factory.newSAXParser();
+        //3得到解读器
+        XMLReader reader=sp.getXMLReader();
+        //设置内容处理器
+        reader.setContentHandler(new ListHandler());
+        //读取xml的文档内容
+        reader.parse("src/Book.xml");
+    }
+}
+
+新建一个ListHandler类，这个类需要继承DefaultHandler类或者实现ContentHandler接口。该类是SAX解析的核心所在，我们要重写以下几个我们关心的方法。 
+1、startDocument()：文档解析开始时调用，该方法只会调用一次 
+2、startElement(String uri, String localName, String qName, Attributes attributes):标签（节点）解析开始时调用
+	uri：xml文档的命名空间
+	localName：标签的名字
+	qName：带命名空间的标签的名字
+	attributes：标签的属性集
+3、characters(char[] ch, int start, int length)：解析标签的内容的时候调用
+	ch：当前读取到的TextNode(文本节点)的字节数组
+	start：字节开始的位置，为0则读取全部
+	length：当前TextNode的长度
+4、endElement(String uri, String localName, String qName)：标签（节点）解析结束后调用 
+5、endDocument()：文档解析结束后调用，该方法只会调用一次
+
+ListHandler代码：
+class ListHandler implements ContentHandler{
+    /**
+     * 当读取到第一个元素时开始做什么
+     */
+    @Override
+    public void startElement(String uri, String localName, String qName,
+            Attributes atts) throws SAXException {
+        System.out.print("<"+qName);
+        for(int i=0;atts!=null&&i<atts.getLength();i++){
+            String attName=atts.getQName(i);
+            String attValueString=atts.getValue(i);
+            System.out.print(" "+attName+"="+attValueString);
+            System.out.print(">");
+        }
+
+    }
+    /**
+     * 表示读取到第一个元素结尾时做什么
+     */
+    @Override
+    public void endElement(String uri, String localName, String qName)
+            throws SAXException {
+        System.out.print("</"+qName+">");
+
+    }
+    /**
+     * 表示读取字符串时做什么
+     */
+    @Override
+    public void characters(char[] ch, int start, int length)
+            throws SAXException {
+        System.out.print(new String(ch,start,length));
+
+    }
+	......
+}
+
+
+
+
+
+
+
 方法一：
 [java] view plain copy
 private boolean validateXMLByXSD(String xml) throws SAXException, UnsupportedEncodingException  
