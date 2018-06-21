@@ -1,0 +1,186 @@
+本文主题：设计模式之适配器模式
+
+概述
+适配器模式将某个类的接口转换成客户端期望的另一个接口表示，主的目的是兼容性，让原本因接口不匹配不能一起工作的两个类可以协同工作。其别名为包装器(Wrapper)。
+
+主要分为三类：
+  类适配器模式
+  对象的适配器模式
+  接口的适配器模式。
+
+模式中的角色
+目标接口（Target）：客户所期待的接口。目标可以是具体的或抽象的类，也可以是接口。 
+需要适配的类（Adaptee）：需要适配的类或适配者类。 
+适配器（Adapter）：通过包装一个需要适配的对象，把原接口转换成目标接口。　　
+
+使用场景：
+系统需要使用现有的类，而这些类的接口不符合系统的需要。 
+想要建立一个可以重复使用的类，用于与一些彼此之间没有太大关联的一些类，包括一些可能在将来引进的类一起工作。 
+需要一个统一的输出接口，而输入端的类型不可预知。
+
+
+类适配器模式：
+/**
+ * 介绍：Adaptee类: 我们有的220V电压
+ */
+public class Voltage220 {
+    public int output220V() {
+        int src = 220;
+        System.out.println("我是" + src + "V");
+        return src;
+    }
+}
+
+/**
+ * 介绍：Target接口：客户需要的5V电压
+ */
+public interface Voltage5 {
+    int output5V();
+}
+
+/**
+ * 介绍：Adapter类：完成220V-5V的转变
+ * 通过继承Adaptee类，实现 Target 类接口，完成Adaptee-->Target的适配。
+ */
+public class VoltageAdapter extends Voltage220 implements Voltage5 {
+    @Override
+    public int output5V() {
+        int src = output220V();
+        System.out.println("适配器工作开始适配电压");
+        int dst = src / 44;
+        System.out.println("适配完成后输出电压：" + dst);
+        return dst;
+    }
+}
+
+/**
+ * 介绍：Client类：手机 .需要5V电压
+ */
+public class Mobile {
+    /**
+     * 充电方法
+     * @param voltage5
+     */
+    public void charging(Voltage5 voltage5) {
+        if (voltage5.output5V() == 5) {
+            System.out.println("电压刚刚好5V，开始充电");
+        } else if (voltage5.output5V() > 5) {
+            System.out.println("电压超过5V，都闪开 我要变成note7了");
+        }
+    }
+}
+
+测试代码：
+Mobile mobile = new Mobile();
+mobile.charging(new VoltageAdapter());
+
+小结：
+Java是单继承的机制，所以类适配器需要继承Adaptee类这一点算是一个缺点， 
+因为这要求target必须是接口，有一定局限性; 
+且Adaptee类的方法在Adapter中都会暴露出来，也增加了使用的成本。
+但同样由于其继承了Adaptee类，所以它可以根据需求重写Target类的方法，使得Adapter的灵活性增强了。
+
+
+
+对象适配器模式:
+基本思路和类的适配器模式相同，只是将Adapter类作修改，这次不继承Adaptee类，而是持有Adaptee类的实例，以解决兼容性的问题。 
+
+/**
+ * 介绍：对象适配器模式：
+ * 持有 Adaptee 类，实现 Target 类接口，完成Adaptee->Target的适配，以达到解决兼容性的问题。
+ */
+
+public class VoltageAdapter2 implements Voltage5 {
+    private Voltage220 mVoltage220;
+
+    public VoltageAdapter2(Voltage220 voltage220) {
+        mVoltage220 = voltage220;
+    }
+
+    @Override
+    public int output5V() {
+        int dst = 0;
+        if (null != mVoltage220) {
+            int src = mVoltage220.output220V();
+            System.out.println("对象适配器工作，开始适配电压");
+            dst = src / 44;
+            System.out.println("适配完成后输出电压：" + dst);
+        }
+        return dst;
+    }
+}
+
+测试代码：
+VoltageAdapter2 voltageAdapter2 = new VoltageAdapter2(new Voltage220());
+Mobile mobile2 = new Mobile();
+mobile2.charging(voltageAdapter2);
+
+小结:
+对象适配器和类适配器其实算是同一种思想，只不过实现方式不同。 
+根据合成复用原则，组合大于继承， 
+所以它解决了类适配器必须继承Adaptee的局限性问题，也不再强求Target必须是接口。 
+同样的它使用成本更低，更灵活。
+
+
+接口适配器模式:
+当不需要全部实现接口提供的方法时，可先设计一个抽象类实现接口，并为该接口中每个方法提供一个默认实现（空方法），那么该抽象类的子类可有选择地覆盖父类的某些方法来实现需求，它适用于一个接口不想使用其所有的方法的情况。
+
+public interface A {
+    void a();
+    void b();
+    void c();
+    void d();
+    void e();
+    void f();
+}
+
+public abstract class Adapter implements A {
+    public void a(){}
+    public void b(){}
+    public void c(){}
+    public void d(){}
+    public void e(){}
+    public void f(){}
+}
+
+public class Ashili extends Adapter {
+    public void a(){
+        System.out.println("实现a方法被调用");
+    }
+    public void d(){
+        System.out.println("实现d方法被调用");
+    }
+}
+
+public class Bshili extends Adapter {
+    public void e(){
+        System.out.println("实现e方法被调用");
+    }
+    public void f(){
+        System.out.println("实现f方法被调用");
+    }
+}
+
+测试代码：
+public static void main(String[] args) {
+    A a = new Ashili();
+    a.a();
+    a.d();
+	
+	A aa = new Bshile();
+	aa.e();
+	aa.f();
+}
+
+小结：
+当存在这样一个接口，其中定义了N多的方法，而我们现在却只想使用其中的一个到几个方法，如果我们直接实现接口，那么我们要对所有的方法进行实现，哪怕我们仅仅是对不需要的方法进行置空（只写一对大括号，不做具体方法实现）也会导致这个类变得臃肿，调用也不方便，这时我们可以使用一个抽象类作为中间件，即适配器，用这个抽象类实现接口，而在抽象类中所有的方法都进行置空，那么我们在创建抽象类的继承类，而且重写我们需要使用的那几个方法即可。
+
+
+总结：
+我个人理解，三种命名方式，是根据 src是以怎样的形式给到Adapter（在Adapter里的形式）来命名的。 
+类适配器，以类给到，在Adapter里，就是将src当做类，继承， 
+对象适配器，以对象给到，在Adapter里，将src作为一个对象，持有。 
+接口适配器，以接口给到，在Adapter里，将src作为一个接口，实现。
+
+Adapter模式最大的作用还是将原本不兼容的接口融合在一起工作。 
+但是在实际开发中，实现起来不拘泥于本文介绍的三种经典形式， 
