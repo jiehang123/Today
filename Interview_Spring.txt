@@ -5,3 +5,10 @@ http://www.importnew.com/15851.html
 https://www.cnblogs.com/notDog/p/5420727.html
 
 https://www.cnblogs.com/digdeep/p/4518571.html
+
+问：spring注解@Resource和@Autowired区别对比
+答：都是做bean的注入时使用，其实@Resource并不是spring中的注解，它的包是javax.annotation.Resource，需要导入，但是spring支持此注解。
+共同点：两个都可以写在字段或者方法上
+不同点：
+1、@Autowired是spring的注解，只按照byType注入，默认情况下要求依赖对象必须存在，如果允许null，可以设置required属性为false。如果我们想使用按照名称byName来装配，可以结合@Qualifier注解一起使用
+2、@Resource默认按照byName自动注入，它有两个重要属性：name和type,spring将name属性解析为bean的名字，而type属性解析为bean的类型。可以两个都指定或者任意指定一个或者两个都不指定。
