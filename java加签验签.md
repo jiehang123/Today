@@ -41,7 +41,32 @@ rK8kgnRxJDwxQG62
 -----END PRIVATE KEY-----
 
 ```
->按照提示，将公钥和私钥分别存在pub.key和pri.key中，真正使用的时候需要将文本首行和末尾行去除，首行尾行内容并不属于密钥内容。
+>除了使用openssl生成密钥对外，也可以直接使用java代码获取密钥对，模板代码如下：
+>首先为RSA算法创建一个KeyPairGenerator对象
+```
+KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+```
+>使用一个随机数据源初始化密钥生成对象
+```
+SecureRandom secureRandom = new SecureRandom();
+//第一个参数代表密钥长度
+keyPairGenerator.initialize(1204, secureRandom);
+```
+>生成密钥对
+```
+KeyPair keyPair = keyPairGenerator.generateKeyPair();
+```
+>通过密钥对生成公私钥
+```
+Key publicKey = keyPair.getPublic();
+Key privateKey = keyPair.getPrivate();
+```
+>对密钥进行base64编码，生成密钥字符串
+```
+String publicKeyBase64 = new BASE64Encoder().encode(publicKey.getEncoded());
+        String privateKeyBase64 = new BASE64Encoder().encode(privateKey.getEncoded());
+```
+>最后按照提示，将公钥和私钥分别存在pub.key和pri.key中，对于openssl生成的密钥文件，真正使用的时候需要将文本首行和末尾行去除，首行尾行内容并不属于密钥内容。
 2. 加签操作
 >加签需要先从文件中读取密钥文件，编写一个简单的文件读取方法，将读取到的内容存储在字符串中。
 ```
@@ -94,7 +119,7 @@ String sign = new String(Base64.encodeBase64(signed));
 >公钥对象生成过程和私钥对象生成的过程类似。
 ```
  KeyFactory mykeyFactory = KeyFactory.getInstance("RSA");
- X509EncodedKeySpec pub_spec = new X509EncodedKeySpec(loadKeyByFile("pub.key").getBytes());
+ X509EncodedKeySpec pub_spec = new X509EncodedKeySpec(Base64.decodeBase64(loadKeyByFile("pub.key").getBytes()));
  PublicKey pubKey = mykeyFactory.generatePublic(pub_spec); 
 ```
 >公钥验证签名和加签的过程也类似，只是在最后的处理不同。
