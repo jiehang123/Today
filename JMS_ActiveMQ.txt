@@ -1,4 +1,4 @@
-﻿本文主题：消息队列的基本概念与Spring整合ActiveMQ
+﻿本文主题：消息队列的基本概念与Spring整合ActiveMQ、ActiveMQ集群搭建
 
 消息队列是分布式系统中的重要组件，当不需要立即获得结果，但是并发量又需要进行控制的时候，差不多就是需要使用消息队列的时候。但是本文不涉及任何集群和分布式的知识，因为我还没学到 -_-# ，这里只是讲解Demo。
 
@@ -85,4 +85,133 @@ Spring中的配置：
 	</bean> 
   解释：不用解释了
   
-配置到这里就基本上通过Spring实现了对于一个消息队列的监听。如果我们需要有生产者去发送消息，或者不使用Spring去监听消息，而是写消费者去消费消息，配置会有些不同。如下继续：
+配置到这里就基本上通过Spring实现了对于一个消息队列的监听。如果我们需要有生产者去发送消息，或者不使用Spring去监听消息，而是写消费者去消费消息，可以直接连接ActivemMQ，下面集群的例子有讲解。
+
+
+
+ActiveMQ 集群搭建(本机搭建的伪集群)
+
+ActiveMQ的高可用原理
+使用ZooKeeper注册所有的ActiveMQ Broker。只有其中的一个Broker可以提供服务，被视为 Master，其他的 Broker 处于待机状态，被视为Slave。如果Master因故障而不能提供服务，Zookeeper会从Slave中选举出一个Broker充当Master。
+Slave连接Master并同步他们的存储状态，Slave不接受客户端连接。所有的存储操作都将被复制到连接Master的Slaves。如果Master宕了，得到了最新更新的Slave会成为 Master。故障节点在恢复后会重新加入到集群中并连接Master进入Slave模式。
+
+首先搭建zookeeper的集群，可以参考我的这篇博客： https://github.com/jiehang123/Today/blob/master/Dubbo_Zookeeper.txt
+
+然后开始搭建ActiveMQ集群，我使用了三个ActiveMQ，用的版本是 apache-activemq-5.15.4-3
+修改他们的conf目录下的配置 activemq.xml 和 jetty.xml
+
+三个activemq.xml里的如下节点的 brokerName属性必须相同
+<broker xmlns="http://activemq.apache.org/schema/core" brokerName="localhost" dataDirectory="${activemq.data}">
+
+persistenceAdapter标签声明了ActiveMQ的默认持久化方式kahaDB，这里需要修改为replicatedLevelDB
+<persistenceAdapter>
+	<kahaDB directory="${activemq.data}/kahadb"/>
+</persistenceAdapter>
+修改为如下，其中zkAddress是三台zookeeper的地址，replicas是集群的数量，
+<persistenceAdapter>
+	<replicatedLevelDB
+		 directory="${activemq.data}/leveldb"
+		 replicas="3"
+		 bind="tcp://0.0.0.0:0"
+		 zkAddress="127.0.0.1:2182,127.0.0.1:2183,127.0.0.1:2184"
+		 hostname="127.0.0.1"
+		 sync="local_disk"
+		 zkPath="/activemq/leveldb-stores"
+	/>
+</persistenceAdapter>
+
+如下标签声明了ActiveMQ的TCP链接端口号，三个MQ分别修改为 61616、61617和61618
+<transportConnector name="openwire" uri="tcp://127.0.0.1:61616?、maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>
+注意注意：这里uri默认的是 tcp://0.0.0.0:61616 一定要修改成本地所在ip地址
+
+修改jetty.xml里jetty的端口号，三个MQ分别修改为 8161、8162和8163
+<property name="port" value="8161" />
+
+客户端连接ActiveMQ的时候，需要把连接ActiveMQ的uri写成这样：
+failover:(tcp://127.0.0.1:61616,tcp://127.0.0.1:61617,tcp://127.0.0.1:61618)?randomize=false
+
+ok，这样三台ActiveMQ搭建的伪集群就配置好了，先启动三个zookeeper，再启动三个ActiveMQ，就可以接收，发送消息了。
+
+如下是测试代码：
+import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+
+import org.apache.activemq.ActiveMQConnectionFactory;
+
+public class ActiveMqSenderAndReceiver {
+	//注意这里连接ActiveMQ的URI的方式
+	private static final String ACTIVEMQ_HOST = "failover:(tcp://127.0.0.1:61616,tcp://127.0.0.1:61617,tcp://127.0.0.1:61618)?randomize=false";
+	private static String QUEUE_NAME = "JiehangQueue1";
+
+	public static void main(String[] args) throws JMSException, InterruptedException {
+		// send message thread
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					sendMessage();
+				} catch (JMSException | InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+
+		// receive message thread
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					receiveMessage();
+				} catch (JMSException | InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+
+	}
+
+	private static void sendMessage() throws JMSException, InterruptedException {
+		ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(ACTIVEMQ_HOST);
+		Connection connection = connectionFactory.createConnection();
+		connection.start();
+		Session session = connection.createSession(Boolean.TRUE, Session.AUTO_ACKNOWLEDGE);
+		Destination destination = session.createQueue(QUEUE_NAME);
+		MessageProducer producer = session.createProducer(destination);
+		for (int i = 0; i < 500000; i++) {
+			Thread.sleep(2000);
+			Message message = session.createTextMessage("Hello ActiveMQ--" + i);
+			producer.send(message);
+			session.commit();
+			System.out.println("Send Message:" + ((TextMessage) message).getText());
+		}
+		producer.close();
+		session.close();
+		connection.close();
+	}
+
+	private static void receiveMessage() throws JMSException, InterruptedException {
+		ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(ACTIVEMQ_HOST);
+		Connection connection = connectionFactory.createConnection();
+		connection.start();
+		Session session = connection.createSession(Boolean.TRUE, Session.AUTO_ACKNOWLEDGE);
+		Destination destination = session.createQueue(QUEUE_NAME);
+		MessageConsumer consumer = session.createConsumer(destination);
+		for (int i = 0; i < 5000000; i++) {
+			Thread.sleep(3000);
+			Message message = consumer.receive();
+			session.commit();
+			// System.out.println("Receive Message: " + ((TextMessage)message).getText());
+			System.out.println("Receive Message: " + message);
+		}
+		session.close();
+		consumer.close();
+		connection.close();
+	}
+}
