@@ -10,3 +10,6 @@ https://github.com/roncoo/roncoo-pay
 
 spring cloud
 https://github.com/yinjihuan/spring-cloud
+
+面试杂文
+http://www.cnblogs.com/javaArchitect
