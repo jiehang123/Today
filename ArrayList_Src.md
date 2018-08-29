@@ -1,39 +1,33 @@
 # 本文主题：ArrayList源码解析
-
 ## ArrayList 源码分析思路
-ArrayList 概述
-ArrayList 的构造函数，也就是我们创建一个 ArrayList 的方法。
-ArrayList 的添加元素的方法， 以及 ArrayList 的扩容机制
-ArrayList 的删除元素的常用方法
-ArrayList 的 改查常用方法
-ArrayList 的 toArray 方法
-ArrayList 的遍历方法，以及常见的错误操作即产生错误操作的原因
-
+ArrayList 概述<br>
+ArrayList 的构造函数，也就是我们创建一个 ArrayList 的方法<br>
+ArrayList 的添加元素的方法， 以及 ArrayList 的扩容机制<br>
+ArrayList 的删除元素的常用方法<br>
+ArrayList 的 改查常用方法<br>
+ArrayList 的 toArray 方法<br>
+ArrayList 的遍历方法，以及常见的错误操作即产生错误操作的原因<br>
 ## ArrayList的基本特点
-1、ArrayList 底层是一个动态扩容的数组结构
-2、允许存放（不止一个） null 元素
-3、允许存放重复数据，存储顺序按照元素的添加顺序
-4、ArrayList 并不是一个线程安全的集合。如果集合的增删操作需要保证线程的安全性，可以考虑使用 CopyOnWriteArrayList 或者使用 collections.synchronizedList(List l)函数返回一个线程安全的ArrayList类.
-
+1、ArrayList 底层是一个动态扩容的数组结构<br>
+2、允许存放（不止一个） null 元素<br>
+3、允许存放重复数据，存储顺序按照元素的添加顺序<br>
+4、ArrayList 并不是一个线程安全的集合。如果集合的增删操作需要保证线程的安全性，可以考虑使用 CopyOnWriteArrayList 或者使用 collections.synchronizedList(List l)函数返回一个线程安全的ArrayList类.<br>
 ## ArrayList 的继承关系
 ```
 public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 从 ArrayList 的继承关系来看， ArrayList 继承自 AbstractList，实现了List<E>, RandomAccess, Cloneable, java.io.Serializable 接口。
-其中 AbstractList和 List<E> 是规定了 ArrayList 作为一个集合框架必须具备的一些属性和方法，ArrayList 本身覆写了基类和接口的大部分方法，这就包含我们要分析的增删改查操作。
-
-ArrayList 实现 RandomAccess 接口标识着其支持随机快速访问，查看源码可以知道RandomAccess 其实只是一个标识，标识某个类拥有随机快速访问的能力，针对 ArrayList 而言通过 get(index)去访问元素可以达到 O(1) 的时间复杂度。有些集合类不拥有这种随机快速访问的能力，比如 LinkedList 就没有实现这个接口。
-
-ArrayList 实现 Cloneable 接口标识着他可以被克隆/复制，其内部实现了 clone 方法供使用者调用来对 ArrayList 进行克隆，但其实现只通过 Arrays.copyOf 完成了对 ArrayList 进行「浅复制」，也就是你改变 ArrayList clone后的集合中的元素，源集合中的元素也会改变，对于深浅复制我以后会单独整理一篇文章来讲述这里不再过多的说。
-
-对于 java.io.Serializable 标识着集合可被被序列化。
-
+>其中 AbstractList和 List<E> 是规定了 ArrayList 作为一个集合框架必须具备的一些属性和方法，ArrayList 本身覆写了基类和接口的大部分方法，这就包含我们要分析的增删改查操作。
+>ArrayList 实现 RandomAccess 接口标识着其支持随机快速访问，查看源码可以知道RandomAccess 其实只是一个标识，标识某个类拥有随机快速访问的能力，针对 ArrayList 而言通过 get(index)去访问元素可以达到 O(1) 的时间复杂度。有些集合类不拥有这种随机快速访问的能力，比如 LinkedList 就没有实现这个接口。
+>ArrayList 实现 Cloneable 接口标识着他可以被克隆/复制，其内部实现了 clone 方法供使用者调用来对 ArrayList 进行克隆，但其实现只通过 Arrays.copyOf 完成了对 ArrayList 进行「浅复制」，也就是你改变 ArrayList clone后的集合中的元素，源集合中的元素也会改变，对于深浅复制我以后会单独整理一篇文章来讲述这里不再过多的说。
+>对于 java.io.Serializable 标识着集合可被被序列化。
+<br>
 我们发现了一些有趣的事情，除了List<E> 以外，ArrayList 实现的接口都是标识接口，标识着这个类具有怎样的特点，看起来更像是一个属性。
 
-ArrayList 的构造方法
+## ArrayList 的构造方法
 在说构造方法之前我们要先看下与构造参数有关的几个全局变量：
-
+```
 /**
  * ArrayList 默认的数组容量
  */
@@ -56,10 +50,12 @@ ArrayList 的构造方法
  * 有兴趣的可以去网上查相关资料
  */
 transient Object[] elementData; // non-private to simplify nested class access
+```
+
 对于上述几个成员变量，我们只是在注释中简单的说明，对于他们具体有什么作用，在下边分析构造方法和扩容机制的时候将会更详细的讲解。
-
+<br>
 ArrayList 一共三种构造方式，我们先从无参的构造方法来开始：
-
+```
 无参构造方法
 /**
  * 构造一个初始容量为10的空列表。
@@ -67,14 +63,17 @@ ArrayList 一共三种构造方式，我们先从无参的构造方法来开始�
 public ArrayList() {
    this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA;
 }
+```
 这是我们经常使用的一个构造方法，其内部实现只是将 elementData 指向了我们刚才讲得  DEFAULTCAPACITY_EMPTY_ELEMENTDATA 这个空数组，这个空数组的容量是 0， 但是源码注释却说这是构造一个初始容量为10的空列表。这是为什么？其实在集合调用 add 方法添加元素的时候将会调用 ensureCapacityInternal 方法，在这个方法内部判断了：
-
+```
 if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
        minCapacity = Math.max(DEFAULT_CAPACITY, minCapacity);
 }
+```
 可见，如果采用无参数构造方法的时候第一次添加元素肯定走进 if 判断中 minCapacity 将被赋值为 10，所以「构造一个初始容量为10的空列表。」也就是这个意思。
-
+<br>
 指定初始容量的构造方法
+```
 /**
  * 构造一个具有指定初始容量的空列表。
  * @param  初始容量 
@@ -90,12 +89,13 @@ public ArrayList(int initialCapacity) {
                                           initialCapacity);
    }
 }
+```
 如果我们预先知道一个集合元素的容纳的个数的时候推荐使用这个构造方法，比如我们有个一 FragmentPagerAdapter 一共需要装 15 个 Fragment ，那么我们就可以在构造集合的时候生成一个初始容量为 15 的一个集合。有人会认为 ArrayList 自身具有动态扩容的机制，无需这么麻烦，下面我们讲解扩容机制的时候我们就会发现，每次扩容是需要有一定的内存开销的，而这个开销在预先知道容量的时候是可以避免的。
-
+<br>
 源代码中指定初始容量的构造方法实现，判断了如果 我们指定容量大于 0 ，将会直接 new 一个数组，赋值给 elementData 引用作为集合真正的存储数组，而指定容量等于 0 的时候讲使用成员变量 EMPTY_ELEMENTDATA 作为暂时的存储数组，这是 EMPTY_ELEMENTDATA 这个空数组的一个用处（不必太过于纠结 EMPTY_ELEMENTDATA 的作用，其实它的在源码中出现的频率并不高）。
-
+<br>
 使用另个一个集合 Collection 的构造方法
-
+```
 /**
  * 构造一个包含指定集合元素的列表，元素的顺序由集合的迭代器返回。
  *
@@ -113,45 +113,22 @@ public ArrayList(int initialCapacity) {
         this.elementData = EMPTY_ELEMENTDATA;
     }
 }
+```
 看完这个代码我最疑惑的地方是 Collection.toArray() 和 Arrays.copyOf（） 这两个方法的使用，看来想明白这个构造参数具体做了什么必须理解这两个方法了。
-
+<br>
 Object[] Collection.toArray() 方法
 我们都知道 Collection 是集合框架的超类，其实 Collection.toArray 是交给具体的集合子类去实现的，这就说明不同的集合可能有不同的实现。他用来将一个集合转化为一个 Object[] 数组，事实上的真的是这样的么？参见 jdk 的 bug 列表(6260652)又是什么意思呢 ？我们来看下下边的这个例子：
-
-List<String> subClasses = Arrays.asList("abc","def");
-
-// class java.util.Arrays$ArrayList  
-System.out.println(list.getClass());  
-    
-Object[] objects = subClasses.toArray();
-
-// class java.lang.String;  
-Object[] objArray = list.toArray();  
-//这里返回的是 String[]
-System.out.println(objects.getClass().getSimpleName()); 
-
-objArray[0] = new Object(); // cause ArrayStoreException  
-咦？为啥这里并不是一个 Object 数组呢？其实我们注意到，list.getClass 得到的并不是我们使用的 ArrayList 而是 Arrays 的内部类 Arrays$ArrayList。
-
- ArrayList(E[] array) {
-       //这里只是检查了数组是否为空，不为空直接将原数组赋值给这个 ArrayList 的存储数组。
-       a = Objects.requireNonNull(array);
-}
-
-@Override
-public Object[] toArray(){
-  return a.clone();
-}
-
+```
+//TODO
+```
 而我们调用的 toArray 方法就是这个内部对于 Collection.toArray 的实现，a.clone() ,这里 clone 并不会改变一个数组的类型，所以当原始数组中放的 String 类型的时候就会出现上边的这种情况了。
-
+<br>
 其实我们可以认为这是 jdk 的一个 bug，早在 05年的时候被人提出来了，但是一直没修复，但是在新的 「jdk 1.9」 种这个 bug 被修复了。
-
+<br>
 有兴趣的可以追踪 bug 6260652 看下。
-
-Arrays.copyOf 方法
-这个方法是在集合源码中常见的一个方法，他有很多重载方式,我们来看下最根本的方法：
-
+<br>
+Arrays.copyOf 是在集合源码中常见的一个方法，他有很多重载方式,我们来看下最根本的方法：
+```
 public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
    @SuppressWarnings("unchecked")
     //根据class的类型是否是 Object[] 来决定是 new 还是反射去构造一个泛型数组
@@ -163,23 +140,26 @@ public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]>
                     Math.min(original.length, newLength));
    return copy;
 }
+```
 上边的注释也看出来了，Arrays.copyOf 方法复制数组的时候先判断了指定的数组类型是否为 Object[] 类型，否则使用反射去构造一个指定类型的数组。最后使用 System.arraycopy这个 native 方法，去实现最终的数组赋值，newLength 如果比 original.length 大的时候会将多余的空间赋值为 null 由下边的例子可见:
-
+```
 String[] arrString = {"abc","def"};
 
 Object[] copyOf = Arrays.copyOf(arrString, 5, Object[].class);
 //[abc, def, null, null, null]
 System.out.println(Arrays.toString(copyOf));
+```
 当然  ArrayList(Collection<? extends E> c) 复制的时候传递的是 c.size() 所以不会出现 null。
-
-ex: 对于 System.arraycopy 该方法，本文不再展开讨论，有一篇对于其分析很好的文章大家可以去参考System：System.arraycopy方法详解
-
+<br>
+>ex: 对于 System.arraycopy 该方法，本文不再展开讨论。
+<br>
 ok，绕了这么大的圈子终于明白了，ArrayList(Collection<? extends E> c)干了啥了，其实就是将一个集合中的元素塞到 ArrayList 底层的数组中。至此我们也将 ArrayList 的构造研究完了。
-
+<br>
 ArrayList的添加元素 & 扩容机制
 敲黑板了！这块是面试的常客了，所以必须仔细研究下了。我们先看下如何给一个 ArrayList 添加一个元素:
-
+<br>
 在集合末尾添加一个元素的方法
+```
 //成员变量 size 标识集合当前元素个数初始为 0
 int size；
 /**
@@ -194,9 +174,11 @@ int size；
     elementData[size++] = e;
     return true;
  }
+ ```
 调用 add 方法的时候总会调用 ensureCapacityInternal 来判断是否需要进行数组扩容，ensureCapacityInternal 参数为当前集合长度 size + 1，这很好理解，是否需要扩充长度，需要看当前底层数组是否够放 size + 1 个元素的。
-
+<br>
 扩容机制
+```
 //扩容检查
 private void ensureCapacityInternal(int minCapacity) {
     //如果是无参构造方法构造的的集合，第一次添加元素的时候会满足这个条件 minCapacity 将会被赋值为 10
@@ -214,8 +196,9 @@ private void ensureExplicitCapacity(int minCapacity) {
    if (minCapacity - elementData.length > 0)
        grow(minCapacity);
 }
+```
 上边的源码主要做了扩容前的判断操作，注意参数为当前集合元素个数+1，第一次添加元素的时候 size + 1 = 1 ,而 elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA, 长度为 0 ，1 - 0 > 0, 所以需要进行 grow 操作也就是扩容。
-
+```
 /**
  * 集合的最大长度 Integer.MAX_VALUE - 8 是为了减少出错的几率 Integer 最大值已经很大了
  */
@@ -251,11 +234,13 @@ private static int hugeCapacity(int minCapacity) {
        Integer.MAX_VALUE :
        MAX_ARRAY_SIZE;
 }
+```
 由此看来 ArrayList 的扩容机制的知识点一共又两个
-
+<br>
 每次扩容的大小为原来大小的 1.5倍 （当然这里没有包含 1.5倍后大于 MAX_ARRAY_SIZE 的情况）
 扩容的过程其实是一个将原来元素拷贝到一个扩容后数组大小的长度新数组中。所以 ArrayList 的扩容其实是相对来说比较消耗性能的。
 在指定角标位置添加元素的方法
+```
 /**
 * 将指定的元素插入该列表中的指定位置。将当前位置的元素(如果有)和任何后续元素移到右边(将一个元素添加到它们的索引中)。
 * 
@@ -275,18 +260,20 @@ public void add(int index, E element) {
    elementData[index] = element;
    size++;
 }
+```
 我们知道一个数组是不能在角标位置直接插入元素的，ArrayList 通过数组拷贝的方法将指定角标位置以及其后续元素整体向后移动一个位置，空出 index 角标的位置，来赋值新的元素。
-
+<br>
 将一个数组 src 起始 srcPos 角标之后 length 长度间的元素，赋值到 dest 数组中 destPos 到 destPos + length -1长度角标位置上。只是在 add 方法中 src 和 destPos 为同一个数组而已。
-
+```
 public static native void arraycopy(Object src,  int  srcPos,
                                         Object dest, int destPos,
                                         int length);
-批量添加元素
+```
+批量添加元素<br>
 由于批量添加和添加一个元素逻辑大概相同则这里不详细说了，代码注释可以了解整个添加流程。
-
+<br>
 在数组末尾添加
-
+```
 public boolean addAll(Collection<? extends E> c) {
         // 调用 c.toArray 将集合转化数组
         Object[] a = c.toArray();
@@ -300,7 +287,9 @@ public boolean addAll(Collection<? extends E> c) {
         //与单一添加的 add 方法不同的是批量添加有返回值，如果 numNew == 0 表示没有要添加的元素则需要返回 false 
         return numNew != 0;
 }
+```
 在数组指定角标位置添加
+```
 public boolean addAll(int index, Collection<? extends E> c) {
         //同样检查要插入的位置是否会导致角标越界
         rangeCheckForAdd(index);
@@ -323,13 +312,14 @@ private void rangeCheckForAdd(int index) {
    if (index > size || index < 0)
        throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
 }
-
+```
 两个方法不同的地方在于如果移动角标即之后的元素，addAll(int index, Collection<? extends E> c)里做了判断，如果要 numMoved > 0 代表插入的位置在集合中间位置，和在 numMoved == 0 最后位置 则表示要在数组末尾添加 如果 numMoved < 0 ，rangeCheckForAdd 就抛出了角标越界异常了。
-
+<br>
 与单一添加的 add 方法不同的是批量添加有返回值，如果 numNew == 0 表示没有要添加的元素则需要返回 false
-
+<br>
 ArrayList 删除元素
 根据角标移除元素
+```
 /**
 * 将任何后续元素移到左边(从它们的索引中减去一个)。
 */
@@ -357,12 +347,13 @@ private void rangeCheck(int index) {
         if (index >= size)
             throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
 }
+```
 根绝角标移除元素的方法源码如上所示，值得注意的地方是：
-
+<br>
 rangeCheck 和 rangeCheckForAdd 方法不同 ，rangeCheck 只检查了 index是否大于等于 size，因为我们知道 size 为elementData 已存储数据的个数，我们只能移除 elementData 数组中 [0 , size -1] 的元素，否则应该抛出角标越界。
-
+<br>
 但是为什么没有 和 rangeCheckForAdd 一样检查小于0的角标呢，是不是remove（-1） 不会抛异常呢？ 其实不是的，因为 rangeCheck(index); 后我们去调用 elementData(index) 的时候也会抛出 IndexOutOfBoundsException 的异常，这是数组本身抛出的，不是 ArrayList 抛出的。那为什么要检查>= size 呢？ 数组本身不也会检查么？ 哈哈.. 细心的同学肯定知道 elementData.length 并不一定等于 size，比如：
-
+```
    ArrayList<String> testRemove = new ArrayList<>(10);
 
    testRemove.add("1");
@@ -371,9 +362,11 @@ rangeCheck 和 rangeCheckForAdd 方法不同 ，rangeCheck 只检查了 index是
    String remove = testRemove.remove(2);
     
    System.out.println("remove = " + remove + "");
+```
 new ArrayList<>(10) 表示 elementData 初始容量为10，所以elementData.length = 10 而我们只给集合添加了两个元素所以 size = 2 这也就是为啥要 rangeCheck 的原因了。
-
+<br>
 移除指定元素
+```
 /**
 * 删除指定元素，如果它存在则反会 true，如果不存在返回 false。
 * 更准确地说是删除集合中第一出现 o 元素位置的元素 ，
@@ -409,14 +402,14 @@ private void fastRemove(int index) {
                         numMoved);
    elementData[--size] = null; // clear to let GC do its work
 }
-
+```
 由上边代码可以看出来，移除元素和移除指定角标元素一样最终都是 通过 System.arraycopy 将 index 之后的元素前移一位，并释放原来位于 size 位置的元素。
-
+<br>
 还可以看出，如果数组中有指定多个与 o 相同的元素只会移除角标最小的那个，并且 null 和 非null 的时候判断方法不一样。至于 equals 和 == 的区别，还有 hashCode 方法，我会之后在总结一篇单独的文章。等不急的可以先去网上找找喽。
-
+<br>
 批量移除/保留 removeAll/retainAll
 ArrayList 提供了 removeAll/retainAll 操作，这两个操作分别是 批量删除与参数集合中共同享有的元素 和 批量删除与参数集合中不共同享有的元素，保留共同享有的元素，由于两个方法只有一个参数不同
-
+```
 /** 批量删除与参数集合中共同享有的元素*/
  public boolean removeAll(Collection<?> c) {
         //判空 如果为空则抛出 NullPointerException 异常 Objects 的方法
@@ -465,8 +458,9 @@ private boolean batchRemove(Collection<?> c, boolean complement) {
    //返回是否成功移除过元素，哪怕一个
    return modified;
 }
+```
 可以看到移除指定集合中包含的元素的方法代码量是目前分析代码中最长的了，但是逻辑也很清晰：
-
+<br>
 从 0 开始遍历 elementData 如果 r 位置的元素不存在于指定集合 c 中，那么我们就将他复制给数组 w 位置， 整个遍历过程中 w <= r。
 由于 c.contains（o）可能会抛出异常 ClassCastException/NullPointerException，如果因为异常而终止（这两个异常是可选操作，集合源码中并没有显示生命该方法一定会抛异常），那么我们将会产生一次错误操作，所以 finally 中执行了判断操作，如果 r!= size 那么肯定是发生了异常，那么则将 r 之后的元素不在比较直接放入数组。最终得到的结果并不一定正确是删除了所有与 c 中的元素。
 批量删除和保存中，涉及高效的保存/删除两个集合公有元素的算法，是值得我们学习的地方。
