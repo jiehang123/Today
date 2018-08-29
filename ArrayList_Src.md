@@ -18,9 +18,9 @@ public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 从 ArrayList 的继承关系来看， ArrayList 继承自 AbstractList，实现了List<E>, RandomAccess, Cloneable, java.io.Serializable 接口。
->其中 AbstractList和 List<E> 是规定了 ArrayList 作为一个集合框架必须具备的一些属性和方法，ArrayList 本身覆写了基类和接口的大部分方法，这就包含我们要分析的增删改查操作。
->ArrayList 实现 RandomAccess 接口标识着其支持随机快速访问，查看源码可以知道RandomAccess 其实只是一个标识，标识某个类拥有随机快速访问的能力，针对 ArrayList 而言通过 get(index)去访问元素可以达到 O(1) 的时间复杂度。有些集合类不拥有这种随机快速访问的能力，比如 LinkedList 就没有实现这个接口。
->ArrayList 实现 Cloneable 接口标识着他可以被克隆/复制，其内部实现了 clone 方法供使用者调用来对 ArrayList 进行克隆，但其实现只通过 Arrays.copyOf 完成了对 ArrayList 进行「浅复制」，也就是你改变 ArrayList clone后的集合中的元素，源集合中的元素也会改变，对于深浅复制我以后会单独整理一篇文章来讲述这里不再过多的说。
+>其中 AbstractList和 List<E> 是规定了 ArrayList 作为一个集合框架必须具备的一些属性和方法，ArrayList 本身覆写了基类和接口的大部分方法，这就包含我们要分析的增删改查操作。<br>
+>ArrayList 实现 RandomAccess 接口标识着其支持随机快速访问，查看源码可以知道RandomAccess 其实只是一个标识，标识某个类拥有随机快速访问的能力，针对 ArrayList 而言通过 get(index)去访问元素可以达到 O(1) 的时间复杂度。有些集合类不拥有这种随机快速访问的能力，比如 LinkedList 就没有实现这个接口。<br>
+>ArrayList 实现 Cloneable 接口标识着他可以被克隆/复制，其内部实现了 clone 方法供使用者调用来对 ArrayList 进行克隆，但其实现只通过 Arrays.copyOf 完成了对 ArrayList 进行「浅复制」，也就是你改变 ArrayList clone后的集合中的元素，源集合中的元素也会改变，对于深浅复制我以后会单独整理一篇文章来讲述这里不再过多的说。<br>
 >对于 java.io.Serializable 标识着集合可被被序列化。
 <br>
 我们发现了一些有趣的事情，除了List<E> 以外，ArrayList 实现的接口都是标识接口，标识着这个类具有怎样的特点，看起来更像是一个属性。
@@ -90,7 +90,7 @@ public ArrayList(int initialCapacity) {
    }
 }
 ```
-如果我们预先知道一个集合元素的容纳的个数的时候推荐使用这个构造方法，比如我们有个一 FragmentPagerAdapter 一共需要装 15 个 Fragment ，那么我们就可以在构造集合的时候生成一个初始容量为 15 的一个集合。有人会认为 ArrayList 自身具有动态扩容的机制，无需这么麻烦，下面我们讲解扩容机制的时候我们就会发现，每次扩容是需要有一定的内存开销的，而这个开销在预先知道容量的时候是可以避免的。
+有人会认为 ArrayList 自身具有动态扩容的机制，无需这么麻烦，下面我们讲解扩容机制的时候我们就会发现，每次扩容是需要有一定的内存开销的，而这个开销在预先知道容量的时候是可以避免的。
 <br>
 源代码中指定初始容量的构造方法实现，判断了如果 我们指定容量大于 0 ，将会直接 new 一个数组，赋值给 elementData 引用作为集合真正的存储数组，而指定容量等于 0 的时候讲使用成员变量 EMPTY_ELEMENTDATA 作为暂时的存储数组，这是 EMPTY_ELEMENTDATA 这个空数组的一个用处（不必太过于纠结 EMPTY_ELEMENTDATA 的作用，其实它的在源码中出现的频率并不高）。
 <br>
