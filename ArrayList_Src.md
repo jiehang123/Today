@@ -18,11 +18,11 @@ public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 从 ArrayList 的继承关系来看， ArrayList 继承自 AbstractList，实现了List<E>, RandomAccess, Cloneable, java.io.Serializable 接口。
->其中 AbstractList和 List<E> 是规定了 ArrayList 作为一个集合框架必须具备的一些属性和方法，ArrayList 本身覆写了基类和接口的大部分方法，这就包含我们要分析的增删改查操作。<br>
->ArrayList 实现 RandomAccess 接口标识着其支持随机快速访问，查看源码可以知道RandomAccess 其实只是一个标识，标识某个类拥有随机快速访问的能力，针对 ArrayList 而言通过 get(index)去访问元素可以达到 O(1) 的时间复杂度。有些集合类不拥有这种随机快速访问的能力，比如 LinkedList 就没有实现这个接口。<br>
->ArrayList 实现 Cloneable 接口标识着他可以被克隆/复制，其内部实现了 clone 方法供使用者调用来对 ArrayList 进行克隆，但其实现只通过 Arrays.copyOf 完成了对 ArrayList 进行「浅复制」，也就是你改变 ArrayList clone后的集合中的元素，源集合中的元素也会改变，对于深浅复制我以后会单独整理一篇文章来讲述这里不再过多的说。<br>
+>其中 AbstractList和 List<E> 是规定了 ArrayList 作为一个集合框架必须具备的一些属性和方法，ArrayList 本身覆写了基类和接口的大部分方法，这就包含我们要分析的增删改查操作。<br><br>
+>ArrayList 实现 RandomAccess 接口标识着其支持随机快速访问，查看源码可以知道RandomAccess 其实只是一个标识，标识某个类拥有随机快速访问的能力，针对 ArrayList 而言通过 get(index)去访问元素可以达到 O(1) 的时间复杂度。有些集合类不拥有这种随机快速访问的能力，比如 LinkedList 就没有实现这个接口。<br><br>
+>ArrayList 实现 Cloneable 接口标识着他可以被克隆/复制，其内部实现了 clone 方法供使用者调用来对 ArrayList 进行克隆，但其实现只通过 Arrays.copyOf 完成了对 ArrayList 进行「浅复制」，也就是你改变 ArrayList clone后的集合中的元素，源集合中的元素也会改变，对于深浅复制我以后会单独整理一篇文章来讲述这里不再过多的说。<br><br>
 >对于 java.io.Serializable 标识着集合可被被序列化。
-<br>
+<br><br>
 我们发现了一些有趣的事情，除了List<E> 以外，ArrayList 实现的接口都是标识接口，标识着这个类具有怎样的特点，看起来更像是一个属性。
 
 ## ArrayList 的构造方法
@@ -91,7 +91,7 @@ public ArrayList(int initialCapacity) {
 }
 ```
 有人会认为 ArrayList 自身具有动态扩容的机制，无需这么麻烦，下面我们讲解扩容机制的时候我们就会发现，每次扩容是需要有一定的内存开销的，而这个开销在预先知道容量的时候是可以避免的。
-<br>
+<br><br>
 源代码中指定初始容量的构造方法实现，判断了如果 我们指定容量大于 0 ，将会直接 new 一个数组，赋值给 elementData 引用作为集合真正的存储数组，而指定容量等于 0 的时候讲使用成员变量 EMPTY_ELEMENTDATA 作为暂时的存储数组，这是 EMPTY_ELEMENTDATA 这个空数组的一个用处（不必太过于纠结 EMPTY_ELEMENTDATA 的作用，其实它的在源码中出现的频率并不高）。
 <br>
 使用另个一个集合 Collection 的构造方法
@@ -115,19 +115,21 @@ public ArrayList(int initialCapacity) {
 }
 ```
 看完这个代码我最疑惑的地方是 Collection.toArray() 和 Arrays.copyOf（） 这两个方法的使用，看来想明白这个构造参数具体做了什么必须理解这两个方法了。
-<br>
-Object[] Collection.toArray() 方法
-我们都知道 Collection 是集合框架的超类，其实 Collection.toArray 是交给具体的集合子类去实现的，这就说明不同的集合可能有不同的实现。他用来将一个集合转化为一个 Object[] 数组，事实上的真的是这样的么？参见 jdk 的 bug 列表(6260652)又是什么意思呢 ？我们来看下下边的这个例子：
+<br><br>
+## Object[] Collection.toArray() 方法
+我们都知道 Collection 是集合框架的超类，其实 Collection.toArray 是交给具体的集合子类去实现的，这就说明不同的集合可能有不同的实现。他用来将一个集合转化为一个 Object[] 数组，事实上的真的是这样的么？参见 jdk 的 bug 列表(6260652)又是什么意思呢 ？<br>
+我们来看下下边的这个例子：
 ```
 //TODO
 ```
 而我们调用的 toArray 方法就是这个内部对于 Collection.toArray 的实现，a.clone() ,这里 clone 并不会改变一个数组的类型，所以当原始数组中放的 String 类型的时候就会出现上边的这种情况了。
-<br>
+<br><br>
 其实我们可以认为这是 jdk 的一个 bug，早在 05年的时候被人提出来了，但是一直没修复，但是在新的 「jdk 1.9」 种这个 bug 被修复了。
-<br>
+<br><br>
 有兴趣的可以追踪 bug 6260652 看下。
-<br>
-Arrays.copyOf 是在集合源码中常见的一个方法，他有很多重载方式,我们来看下最根本的方法：
+<br><br>
+## Arrays.copyOf 
+是在集合源码中常见的一个方法，他有很多重载方式,我们来看下最根本的方法：
 ```
 public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
    @SuppressWarnings("unchecked")
@@ -150,14 +152,14 @@ Object[] copyOf = Arrays.copyOf(arrString, 5, Object[].class);
 System.out.println(Arrays.toString(copyOf));
 ```
 当然  ArrayList(Collection<? extends E> c) 复制的时候传递的是 c.size() 所以不会出现 null。
-<br>
+<br><br>
 >ex: 对于 System.arraycopy 该方法，本文不再展开讨论。
-<br>
+<br><br>
 ok，绕了这么大的圈子终于明白了，ArrayList(Collection<? extends E> c)干了啥了，其实就是将一个集合中的元素塞到 ArrayList 底层的数组中。至此我们也将 ArrayList 的构造研究完了。
-<br>
-ArrayList的添加元素 & 扩容机制
+<br><br>
+## ArrayList的添加元素 & 扩容机制
 敲黑板了！这块是面试的常客了，所以必须仔细研究下了。我们先看下如何给一个 ArrayList 添加一个元素:
-<br>
+<br><br>
 在集合末尾添加一个元素的方法
 ```
 //成员变量 size 标识集合当前元素个数初始为 0
@@ -177,7 +179,7 @@ int size；
  ```
 调用 add 方法的时候总会调用 ensureCapacityInternal 来判断是否需要进行数组扩容，ensureCapacityInternal 参数为当前集合长度 size + 1，这很好理解，是否需要扩充长度，需要看当前底层数组是否够放 size + 1 个元素的。
 <br>
-扩容机制
+扩容机制：
 ```
 //扩容检查
 private void ensureCapacityInternal(int minCapacity) {
@@ -236,7 +238,7 @@ private static int hugeCapacity(int minCapacity) {
 }
 ```
 由此看来 ArrayList 的扩容机制的知识点一共又两个
-<br>
+<br><br>
 每次扩容的大小为原来大小的 1.5倍 （当然这里没有包含 1.5倍后大于 MAX_ARRAY_SIZE 的情况）
 扩容的过程其实是一个将原来元素拷贝到一个扩容后数组大小的长度新数组中。所以 ArrayList 的扩容其实是相对来说比较消耗性能的。
 在指定角标位置添加元素的方法
@@ -262,17 +264,17 @@ public void add(int index, E element) {
 }
 ```
 我们知道一个数组是不能在角标位置直接插入元素的，ArrayList 通过数组拷贝的方法将指定角标位置以及其后续元素整体向后移动一个位置，空出 index 角标的位置，来赋值新的元素。
-<br>
+<br><br>
 将一个数组 src 起始 srcPos 角标之后 length 长度间的元素，赋值到 dest 数组中 destPos 到 destPos + length -1长度角标位置上。只是在 add 方法中 src 和 destPos 为同一个数组而已。
 ```
 public static native void arraycopy(Object src,  int  srcPos,
                                         Object dest, int destPos,
                                         int length);
 ```
-批量添加元素<br>
+## 批量添加元素<br><br>
 由于批量添加和添加一个元素逻辑大概相同则这里不详细说了，代码注释可以了解整个添加流程。
-<br>
-在数组末尾添加
+<br><br>
+### 在数组末尾添加
 ```
 public boolean addAll(Collection<? extends E> c) {
         // 调用 c.toArray 将集合转化数组
@@ -288,7 +290,7 @@ public boolean addAll(Collection<? extends E> c) {
         return numNew != 0;
 }
 ```
-在数组指定角标位置添加
+### 在数组指定角标位置添加
 ```
 public boolean addAll(int index, Collection<? extends E> c) {
         //同样检查要插入的位置是否会导致角标越界
@@ -314,11 +316,11 @@ private void rangeCheckForAdd(int index) {
 }
 ```
 两个方法不同的地方在于如果移动角标即之后的元素，addAll(int index, Collection<? extends E> c)里做了判断，如果要 numMoved > 0 代表插入的位置在集合中间位置，和在 numMoved == 0 最后位置 则表示要在数组末尾添加 如果 numMoved < 0 ，rangeCheckForAdd 就抛出了角标越界异常了。
-<br>
+<br><br>
 与单一添加的 add 方法不同的是批量添加有返回值，如果 numNew == 0 表示没有要添加的元素则需要返回 false
 <br>
-ArrayList 删除元素
-根据角标移除元素
+## ArrayList 删除元素
+### 根据角标移除元素
 ```
 /**
 * 将任何后续元素移到左边(从它们的索引中减去一个)。
@@ -349,9 +351,9 @@ private void rangeCheck(int index) {
 }
 ```
 根绝角标移除元素的方法源码如上所示，值得注意的地方是：
-<br>
+<br><br>
 rangeCheck 和 rangeCheckForAdd 方法不同 ，rangeCheck 只检查了 index是否大于等于 size，因为我们知道 size 为elementData 已存储数据的个数，我们只能移除 elementData 数组中 [0 , size -1] 的元素，否则应该抛出角标越界。
-<br>
+<br><br>
 但是为什么没有 和 rangeCheckForAdd 一样检查小于0的角标呢，是不是remove（-1） 不会抛异常呢？ 其实不是的，因为 rangeCheck(index); 后我们去调用 elementData(index) 的时候也会抛出 IndexOutOfBoundsException 的异常，这是数组本身抛出的，不是 ArrayList 抛出的。那为什么要检查>= size 呢？ 数组本身不也会检查么？ 哈哈.. 细心的同学肯定知道 elementData.length 并不一定等于 size，比如：
 ```
    ArrayList<String> testRemove = new ArrayList<>(10);
@@ -364,8 +366,8 @@ rangeCheck 和 rangeCheckForAdd 方法不同 ，rangeCheck 只检查了 index是
    System.out.println("remove = " + remove + "");
 ```
 new ArrayList<>(10) 表示 elementData 初始容量为10，所以elementData.length = 10 而我们只给集合添加了两个元素所以 size = 2 这也就是为啥要 rangeCheck 的原因了。
-<br>
-移除指定元素
+<br><br>
+### 移除指定元素
 ```
 /**
 * 删除指定元素，如果它存在则反会 true，如果不存在返回 false。
@@ -404,10 +406,10 @@ private void fastRemove(int index) {
 }
 ```
 由上边代码可以看出来，移除元素和移除指定角标元素一样最终都是 通过 System.arraycopy 将 index 之后的元素前移一位，并释放原来位于 size 位置的元素。
-<br>
+<br><br>
 还可以看出，如果数组中有指定多个与 o 相同的元素只会移除角标最小的那个，并且 null 和 非null 的时候判断方法不一样。至于 equals 和 == 的区别，还有 hashCode 方法，我会之后在总结一篇单独的文章。等不急的可以先去网上找找喽。
 <br>
-批量移除/保留 removeAll/retainAll
+### 批量移除/保留 removeAll/retainAll
 ArrayList 提供了 removeAll/retainAll 操作，这两个操作分别是 批量删除与参数集合中共同享有的元素 和 批量删除与参数集合中不共同享有的元素，保留共同享有的元素，由于两个方法只有一个参数不同
 ```
 /** 批量删除与参数集合中共同享有的元素*/
@@ -460,14 +462,15 @@ private boolean batchRemove(Collection<?> c, boolean complement) {
 }
 ```
 可以看到移除指定集合中包含的元素的方法代码量是目前分析代码中最长的了，但是逻辑也很清晰：
-<br>
+<br><br>
 从 0 开始遍历 elementData 如果 r 位置的元素不存在于指定集合 c 中，那么我们就将他复制给数组 w 位置， 整个遍历过程中 w <= r。
-由于 c.contains（o）可能会抛出异常 ClassCastException/NullPointerException，如果因为异常而终止（这两个异常是可选操作，集合源码中并没有显示生命该方法一定会抛异常），那么我们将会产生一次错误操作，所以 finally 中执行了判断操作，如果 r!= size 那么肯定是发生了异常，那么则将 r 之后的元素不在比较直接放入数组。最终得到的结果并不一定正确是删除了所有与 c 中的元素。
+由于 c.contains（o）可能会抛出异常 ClassCastException/NullPointerException，如果因为异常而终止（这两个异常是可选操作，集合源码中并没有显示生命该方法一定会抛异常），那么我们将会产生一次错误操作，所以 finally 中执行了判断操作，如果 r!= size 那么肯定是发生了异常，那么则将 r 之后的元素不在比较直接放入数组。最终得到的结果并不一定正确是删除了所有与 c 中的元素。<br><br>
 批量删除和保存中，涉及高效的保存/删除两个集合公有元素的算法，是值得我们学习的地方。
-ArraList 的改查
+## ArraList 的改查
 对于一个ArrayList 的改查方法就很简单了，set 和 get 方法。下面我们看下源码吧：
-
-修改指定角标位置的元素
+<br><br>
+### 修改指定角标位置的元素
+```
 public E set(int index, E element) {
     //角标越界检查
    rangeCheck(index);
@@ -478,20 +481,23 @@ public E set(int index, E element) {
    // 返回之前在 index 位置的元素
    return oldValue;
 }
-
+```
+```
 E elementData(int index) {
     return (E) elementData[index];
 }
-
-查询指定角标的元素
+```
+### 查询指定角标的元素
+```
 public E get(int index) {
     //越界检查
     rangeCheck(index);
     //下标取数据注意这里不是elementData[index] 而是 elementData(index) 方法
     return elementData(index); 
 }
-
-查询指定元素的角标或者集合是否包含某个元素
+```
+### 查询指定元素的角标或者集合是否包含某个元素
+```
 //集合中是否包含元素 indexOf 返回 -1 表示不包含 return false 否则返回 true
 public boolean contains(Object o) {
    return indexOf(o) >= 0;
@@ -513,7 +519,8 @@ public int indexOf(Object o) {
    }
    return -1;
 }
-    
+```
+ ```   
  /** 
   * 从 elementData 末尾开始遍历遍历数组，所以返回的是集合中最后一个与 o 相等的元素的角标
   */
@@ -529,10 +536,10 @@ public int lastIndexOf(Object o) {
    }
    return -1;
 }
-
-ArrayList 集合的 toArry 方法
+```
+## ArrayList 集合的 toArry 方法
 其实 Object[] toArray(); 方法，以及其重载函数 <T> T[] toArray(T[] a); 是接口 Collection 的方法，ArrayList 实现了这两个方法，很少见ArrayList 源码分析的文章分析这两个方法，顾名思义这两个方法的是用来，将一个集合转为数组的方法，那么两者的不同之处是，后者可以指定数组的类型，前者返回为一个 Object[] 超类数组。那么我们具体下源码实现：
-
+```
 public Object[] toArray() {
    return Arrays.copyOf(elementData, size);
 }
@@ -547,18 +554,21 @@ public <T> T[] toArray(T[] a) {
        a[size] = null;
    return a;
 }
+           ```
 可以看到 Object[] toArray() 只是调用了一次 Arrays.copyOf 将集合中元素拷贝到一个新的 Object[] 数组并返回。这个 Arrays.copyOf 方法前边已经讲了。所以 toArray 方法并没有什么疑问，有疑问的地方在于toArray(T[] a) 。
-
+<br><br>
 我们可以传入一个指定类型的标志数组作为参数，toArray(T[] a) 方法最终会返回这个类型的包含集合元素的新数组。但是源码判断了 ：
-
+<br><br>
 如果 a.length < size 即当前集合元素的个数与参数 a 数组元素的大小的时候将和 toArray() 一样返回一个新的数组。
-
+<br><br>
 如果 a.length == size 将不会产生新的数组直接将集合中的元素调用 System.arraycopy 方法将元素复制到参数数组中，返回 a。
-
+<br><br>
 a.length > size 也不会产生新的数组,但是值得注意的是 a[size] = null; 这一句改变了原数组中 index = size 位置的元素，被重新设置为 null 了。
+<br><br>
 
-下面我们来看下第三种情况的例子：
-
+>下面我们来看下第三种情况的例子：
+<br>
+```
 SubClass[] sourceMore = new SubClass[4];
    for (int i = 0; i < sourceMore.length; i++) {
        sourceMore[i] = new SubClass(i);
@@ -584,27 +594,29 @@ System.out.println("list to Array 之后 source " + Arrays.toString(sourceMore) 
 
 //source ==  desSource true
 System.out.println("source ==  desSource " + (sourceMore == desSourceMore));
-
-ArrayList 的遍历
+```
+## ArrayList 的遍历
 ArrayList 的遍历方式 jdk 1.8 之前有三种 ：for 循环遍历， foreach 遍历，迭代器遍历,jdk 1.8 之后又引入了forEach 操作，我们先来看看迭代器的源码实现：
-
-迭代器
+<br><br>
+### 迭代器
 迭代器 Iterator 模式是用于遍历各种集合类的标准访问方法。它可以把访问逻辑从不同类型的集合类中抽象出来，从而避免向客户端暴露集合的内部结构。 ArrayList 作为集合类也不例外，迭代器本身只提供三个接口方法：
-
+```
    public interface Iterator {
      　　boolean hasNext();//是否还有下一个元素
      　　Object next();// 返回当前元素 可以理解为他相当于 fori 中 i 索引
      　　void remove();// 移除一个当前的元素 也就是 next 元素。
     }
+```
 ArrayList 中调用  iterator() 将会返回一个内部类对象 Itr 其实现了 Iterator 接口。
-
+```
 public Iterator<E> iterator() {
         return new Itr();
 }
+```
 下面让我们看下其实现的源码：
-
+<br><br>
 正如我们的 for 循环遍历一样，数组角标总是从 0 开始的，所以 cursor 初始值为 0 ， hasNext 表示是否遍历到数组末尾，即 i < size 。对于 modCount 变量之所以一直没有介绍是因为他集合并发访问有关系，用于标记当前集合被修改（增删）的次数，如果并发访问了集合那么将会导致这个 modCount 的变化，在遍历过程中不正确的操作集合将会抛出 ConcurrentModificationException ，这是 Java 「fast-fail 的机制」，对于如果正确的在遍历过程中操作集合稍后会有说明。
-
+```
 private class Itr implements Iterator<E> {
    int cursor; // 对照 hasNext 方法 cursor 应理解为下个调用 next 返回的元素 初始为 0
    int lastRet = -1; // 上一个返回的角标
@@ -613,9 +625,9 @@ private class Itr implements Iterator<E> {
    public boolean hasNext() {
        return cursor != size;
    }
-
+```
 next 方法是我们获取集合中元素的方法，next 返回当前遍历位置的元素，如果在调用 next 之前集合被修改，并且迭代器中的期望操作数并没有改变，将会引发ConcurrentModificationException。next 方法多次调用 checkForComodification 来检验这个条件是否成立。
-
+```
    @SuppressWarnings("unchecked")
    public E next() {
         // 验证期望的操作数与当前集合中的操作数是否相同 如果不同将会抛出异常
@@ -634,9 +646,9 @@ next 方法是我们获取集合中元素的方法，next 返回当前遍历位�
        //最终返回 集合中对应位置的元素，并将 lastRet 赋值为已经访问的元素的下标
        return (E) elementData[lastRet = i];
    }
-
+```
 只有 Iterator 的 remove 方法会在调用集合的 remove 之后让 期望 操作数改变使expectedModCount与 modCount 再相等，所以是安全的。
-
+```
     // 实质调用了集合的 remove 方法移除元素
    public void remove() {
         // 比如操作者没有调用 next 方法就调用了 remove 操作，lastRet 等于 -1的时候抛异常
@@ -660,9 +672,9 @@ next 方法是我们获取集合中元素的方法，next 返回当前遍历位�
            throw new ConcurrentModificationException();
        }
    }
-
+```
 检查期望的操作数与当前集合的操作数是否相同。Java8 发布了很多函数式编程的特性包括 lamada 和Stream 操作。迭代器也因此添加了 forEachRemaining 方法，这个方法可以将当前迭代器访问的元素（next 方法）后的元素传递出去还没用到过，源码就不放出来了,大家有兴趣自己了解下。
-
+```
    @Override
    @SuppressWarnings("unchecked")
    public void forEachRemaining(Consumer<? super E> consumer) {
@@ -674,13 +686,15 @@ next 方法是我们获取集合中元素的方法，next 返回当前遍历位�
            throw new ConcurrentModificationException();
    }
 }
-java8 新增加的遍历方法 forEach
+```
+### java8 新增加的遍历方法 forEach
+
 java8增加很多好用的 API，工作和学习中也在慢慢接触这些 API，forEach 操作可能是我继 lambda 后，第一个使用的 API 了（囧），jdk doc 对这个方法的解释是：
-
+<br><br>
 对此集合的每个条目执行给定操作，直到处理完所有条目或操作抛出异常为止。 除非实现类另有规定，否则按照条目集迭代的顺序执行操作（如果指定了迭代顺序）。操作抛出的异常需要调用者自己处理。
-
+<br><br>
 其实其内部实现也很简单，只是一个判断了操作数的 for 循环，所以在效率上不会有提升，但是在安全性上的确有提升，也少些很多代码不是么？
-
+```
 @Override
 public void forEach(Consumer<? super E> action) {
     //检查调用者传进来的操作函数是否为空
@@ -698,12 +712,12 @@ public void forEach(Consumer<? super E> action) {
        throw new ConcurrentModificationException();
    }
 }
-
+```
 对于高级 for 循环以及最普通的 fori 方法这里不再赘述。下面我们看下面试会问到一个问题，也是我们在单线程操作集合的时候需要注意的一个问题，如果正确的在遍历过程中修改集合。
-
-错误操作 1 在 for循环修改集合后继续遍历
+<br><br>
+错误操作 1 在 for循环修改集合后继续遍历<br>
 第一个例子：
-
+```
 List<SubClass> list2 = new ArrayList<>();
 
 list2.add(new SubClass(1));
@@ -718,9 +732,9 @@ for (int i = 0; i < list2.size(); i++) {
 }
 System.out.println(list2);
 //[SubClass{test=1}, SubClass{test=2}, SubClass{test=3}]
-
+```
 这个例子我们会发现，程序并没有抛出异常，但是从运行经过上来看并不是我们想要的，因为还有 SubClass.test = 3的数据在，这是因为 remove 操作改变了list.size(),而 fori 中每次执行都会重新调用一次lists2.size()，当我们删除了倒数第二个元素后，list2.size() = 3,i = 3 < 3 不成立则没有在进行 remove 操作，知道了为什么以后我们试着这样改变了循环方式：
-
+```
 int size = list2.size();
 for (int i = 0; i < size; i++) {
   if (list2.get(i).test == 3) {
@@ -730,13 +744,15 @@ for (int i = 0; i < size; i++) {
 System.out.println(list2);
 
 //Exception in thread "main" java.lang.IndexOutOfBoundsException: Index: 3, Size: 3
+```
 果真程序抛出了角标越界的异常，因为这样每次 fori 的时候我们不去拿更新后的 list 元素的 size 大小，所以当我们删除一个元素后，size = 3 当我们 for 循环去list2.get(3)的时候就会被 rangeCheck方法抛出异常。
-
+<br><br>
 错误操作导致 ConcurrentModificationException 异常
+<br><br>
 我们分析迭代器的时候，知道 ConcurrentModificationException是指因为迭代器调用 checkForComodification 方法比较 modCount 和 expectedModCount 方法大小的时候抛出异常。我们在分析 ArrayList 的时候在每次对集合进行修改， 即有 add 和 remove 操作的时候每次都会对 modCount ++。
-
+<br><br>
 modCount 这个变量主要用来记录 ArrayList 被修改的次数，那么为什么要记录这个次数呢？是为了防止多线程对同一集合进行修改产生错误，记录了这个变量，在对 ArrayList 进行迭代的过程中我们能很快的发现这个变量是否被修改过，如果被修改了 ConcurrentModificationException 将会产生。下面我们来看下例子，这个例子并不是在多线程下的，而是因为我们在同一线程中对 list 进行了错误操作导致的：
-
+```
 Iterator<SubClass> iterator = lists.iterator();
 
 while (iterator.hasNext()) {
@@ -750,10 +766,11 @@ while (iterator.hasNext()) {
 //操作1： Exception in thread "main" java.util.ConcurrentModificationException
 //操作2：  [SubClass{test=1}, SubClass{test=2}]
 System.out.println(list2);
+```
 我们对操作1，2分别运行程序，可以看到，操作1很快就抛出了 java.util.ConcurrentModificationException 异常，操作2 则顺利运行出正常结果，如果对 modCount 注意了的话，我们很容易理解，list.remove(index) 操作会修改List 的 modCount，而 iterator.next() 内部每次会检验 expectedModCount != modCount，所以当我们使用 list.remove 下一次再调用 iterator.next() 就会报错了，而iterator.remove为什么是安全的呢？因为其操作内部会在调用 list.remove 后重新将新的 modCount 赋值给 expectedModCount。所以我们直接调用 list.remove 操作是错误的。对于多线程的影响这里不在展开这里推荐有兴趣的朋友看下这个文章 Java ConcurrentModificationException异常原因和解决方法;
-
+<br><br>
 经过了一轮分析我们我们知道了错误产生原因了，但是大家是否能真的分辨出什么操作是错误的呢？我们来看下边这个面试题，这是我在网上无意中看到的一道大众点评的面试题：
-
+```
 ArrayList<String> list = new ArrayList<String>();
 for (int i = 0; i < 10; i++) {
   list.add("sh" + i);
@@ -763,21 +780,21 @@ for (int i = 0; list.iterator().hasNext(); i++) {
   list.remove(i);
   System.out.println("秘密" + list.get(i));
 }
-一道面试题
+```
+一道面试题<br><br>
 相信大家肯定知道这样操作是会产生错误的，但是最终会抛出角标越界还是ConcurrentModificationException呢？
-
+<br><br>
 其实这里会抛出角标越界异常，为什么呢，因为 for 循环的条件 list.iterator().hasNext()，我们知道 list.iterator() 将会new 一个新的 iterator 对象，而在 new 的过程中我们将 每次 list.remove 后的 modCount 赋值给了新的 iterator 的 expectedModCount，所以不会抛出 ConcurrentModificationException 异常，而 hasNext 内部只判断了 size 是否等于 cursor != size 当我们删除了一半元素以后，size 变成了 5 而新的  list.iterator() 的 cursor 等于 0 ，0!=5 for 循环继续，那么当执行到 list.remove（5）的时候就会抛出角标越界了。
-
+<br><br>
 总结
-ArrayList 底层是一个动态扩容的数组结构,每次扩容需要增加1.5倍的容量
-ArrayList 扩容底层是通过 Arrays.CopyOf 和  System.arraycopy 来实现的。每次都会产生新的数组，和数组中内容的拷贝，所以会耗费性能，所以在多增删的操作的情况可优先考虑 LinkList 而不是 ArrayList。
-ArrayList 的 toArray 方法重载方法的使用。
-允许存放（不止一个） null 元素，
-允许存放重复数据，存储顺序按照元素的添加顺序
-ArrayList 并不是一个线程安全的集合。如果集合的增删操作需要保证线程的安全性，可以考虑使用 CopyOnWriteArrayList 或者使collections.synchronizedList(List l)函数返回一个线程安全的ArrayList类.
-不正确访问集合元素的时候 ConcurrentModificationException和 java.lang.IndexOutOfBoundsException 异常产生的时机和原理。
+ArrayList 底层是一个动态扩容的数组结构,每次扩容需要增加1.5倍的容量<br>
+ArrayList 扩容底层是通过 Arrays.CopyOf 和  System.arraycopy 来实现的。每次都会产生新的数组，和数组中内容的拷贝，所以会耗费性能，所以在多增删的操作的情况可优先考虑 LinkList 而不是 ArrayList。<br>
+ArrayList 的 toArray 方法重载方法的使用。<br>
+允许存放（不止一个） null 元素，<br>
+允许存放重复数据，存储顺序按照元素的添加顺序<br>
+ArrayList 并不是一个线程安全的集合。如果集合的增删操作需要保证线程的安全性，可以考虑使用 CopyOnWriteArrayList 或者使<br>collections.synchronizedList(List l)函数返回一个线程安全的ArrayList类.<br>
+不正确访问集合元素的时候 ConcurrentModificationException和 java.lang.IndexOutOfBoundsException 异常产生的时机和原理。<br>
 
-作者：醒着的码者
-链接：https://www.jianshu.com/p/ccddd869d651
-來源：简书
-简书著作权归作者所有，任何形式的转载都请联系作者获得授权并注明出处。
+
+转载自： [https://www.jianshu.com/p/ccddd869d651](https://www.jianshu.com/p/ccddd869d651)
+
