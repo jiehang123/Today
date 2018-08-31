@@ -619,6 +619,7 @@ public Iterator<E> iterator() {
 下面让我们看下其实现的源码：
 <br><br>
 正如我们的 for 循环遍历一样，数组角标总是从 0 开始的，所以 cursor 初始值为 0 ， hasNext 表示是否遍历到数组末尾，即 i < size 。对于 modCount 变量之所以一直没有介绍是因为他集合并发访问有关系，用于标记当前集合被修改（增删）的次数，如果并发访问了集合那么将会导致这个 modCount 的变化，在遍历过程中不正确的操作集合将会抛出 ConcurrentModificationException ，这是 Java 「fast-fail 的机制」，对于如果正确的在遍历过程中操作集合稍后会有说明。
+
 ```
 private class Itr implements Iterator<E> {
    int cursor; // 对照 hasNext 方法 cursor 应理解为下个调用 next 返回的元素 初始为 0
@@ -629,7 +630,9 @@ private class Itr implements Iterator<E> {
        return cursor != size;
    }
 ```
+
 next 方法是我们获取集合中元素的方法，next 返回当前遍历位置的元素，如果在调用 next 之前集合被修改，并且迭代器中的期望操作数并没有改变，将会引发ConcurrentModificationException。next 方法多次调用 checkForComodification 来检验这个条件是否成立。
+
 ```
    @SuppressWarnings("unchecked")
    public E next() {
@@ -650,7 +653,9 @@ next 方法是我们获取集合中元素的方法，next 返回当前遍历位�
        return (E) elementData[lastRet = i];
    }
 ```
+
 只有 Iterator 的 remove 方法会在调用集合的 remove 之后让 期望 操作数改变使expectedModCount与 modCount 再相等，所以是安全的。
+
 ```
     // 实质调用了集合的 remove 方法移除元素
    public void remove() {
@@ -676,7 +681,9 @@ next 方法是我们获取集合中元素的方法，next 返回当前遍历位�
        }
    }
 ```
+
 检查期望的操作数与当前集合的操作数是否相同。Java8 发布了很多函数式编程的特性包括 lamada 和Stream 操作。迭代器也因此添加了 forEachRemaining 方法，这个方法可以将当前迭代器访问的元素（next 方法）后的元素传递出去还没用到过，源码就不放出来了,大家有兴趣自己了解下。
+
 ```
    @Override
    @SuppressWarnings("unchecked")
@@ -690,6 +697,7 @@ next 方法是我们获取集合中元素的方法，next 返回当前遍历位�
    }
 }
 ```
+
 ### java8 新增加的遍历方法 forEach
 
 java8增加很多好用的 API，工作和学习中也在慢慢接触这些 API，forEach 操作可能是我继 lambda 后，第一个使用的 API 了（囧），jdk doc 对这个方法的解释是：
