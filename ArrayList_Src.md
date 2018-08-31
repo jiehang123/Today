@@ -568,7 +568,7 @@ public <T> T[] toArray(T[] a) {
 a.length > size 也不会产生新的数组,但是值得注意的是 a[size] = null; 这一句改变了原数组中 index = size 位置的元素，被重新设置为 null 了。
 <br><br>
 
->下面我们来看下第三种情况的例子：
+下面我们来看下第三种情况的例子:
 <br>
 ```
 SubClass[] sourceMore = new SubClass[4];
@@ -597,6 +597,7 @@ System.out.println("list to Array 之后 source " + Arrays.toString(sourceMore) 
 //source ==  desSource true
 System.out.println("source ==  desSource " + (sourceMore == desSourceMore));
 ```
+<br>
 ## ArrayList 的遍历
 ArrayList 的遍历方式 jdk 1.8 之前有三种 ：for 循环遍历， foreach 遍历，迭代器遍历,jdk 1.8 之后又引入了forEach 操作，我们先来看看迭代器的源码实现：
 <br><br>
