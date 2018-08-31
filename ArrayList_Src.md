@@ -539,6 +539,8 @@ public int lastIndexOf(Object o) {
 ```
 ## ArrayList 集合的 toArry 方法
 其实 Object[] toArray(); 方法，以及其重载函数 <T> T[] toArray(T[] a); 是接口 Collection 的方法，ArrayList 实现了这两个方法，很少见ArrayList 源码分析的文章分析这两个方法，顾名思义这两个方法的是用来，将一个集合转为数组的方法，那么两者的不同之处是，后者可以指定数组的类型，前者返回为一个 Object[] 超类数组。那么我们具体下源码实现：
+<br>
+
 ```
 public Object[] toArray() {
    return Arrays.copyOf(elementData, size);
@@ -554,7 +556,7 @@ public <T> T[] toArray(T[] a) {
        a[size] = null;
    return a;
 }
-           ```
+```
 可以看到 Object[] toArray() 只是调用了一次 Arrays.copyOf 将集合中元素拷贝到一个新的 Object[] 数组并返回。这个 Arrays.copyOf 方法前边已经讲了。所以 toArray 方法并没有什么疑问，有疑问的地方在于toArray(T[] a) 。
 <br><br>
 我们可以传入一个指定类型的标志数组作为参数，toArray(T[] a) 方法最终会返回这个类型的包含集合元素的新数组。但是源码判断了 ：
