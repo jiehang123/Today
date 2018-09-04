@@ -57,7 +57,7 @@ redis事务的三条性质：
   3. 不保证原子性：redis中的一个事务中如果存在命令执行失败，那么其他命令依然会被执行，没有回滚机制
 
 redis的六种淘汰策略：
-volatile-lru：从已设置过期时间的数据集（server.db[i].expires）中挑选最近最少使用的数据淘汰
+volatile-lru：从已设置过期时间的数据集（server.db[i].expires）中挑选最近最少使用的数据淘汰 lru = Least Recently Used
 volatile-ttl：从已设置过期时间的数据集（server.db[i].expires）中挑选将要过期的数据淘汰
 volatile-random：从已设置过期时间的数据集（server.db[i].expires）中任意选择数据淘汰
 allkeys-lru：从数据集（server.db[i].dict）中挑选最近最少使用的数据淘汰
