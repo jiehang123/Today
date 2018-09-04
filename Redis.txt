@@ -55,3 +55,11 @@ redis事务的三条性质：
   1. 单独的隔离操作：事务中的所有命令会被序列化、按顺序执行，在执行的过程中不会被其他客户端发送来的命令打断
   2. 没有隔离级别的概念：队列中的命令在事务没有被提交之前不会被实际执行
   3. 不保证原子性：redis中的一个事务中如果存在命令执行失败，那么其他命令依然会被执行，没有回滚机制
+
+redis的六种淘汰策略：
+volatile-lru：从已设置过期时间的数据集（server.db[i].expires）中挑选最近最少使用的数据淘汰
+volatile-ttl：从已设置过期时间的数据集（server.db[i].expires）中挑选将要过期的数据淘汰
+volatile-random：从已设置过期时间的数据集（server.db[i].expires）中任意选择数据淘汰
+allkeys-lru：从数据集（server.db[i].dict）中挑选最近最少使用的数据淘汰
+allkeys-random：从数据集（server.db[i].dict）中任意选择数据淘汰
+no-enviction（驱逐）：禁止驱逐数据
