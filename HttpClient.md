@@ -1,6 +1,6 @@
 # HttClient.jar基本使用
 HttpClient是Apache Jakarta Common下的子项目，用来提供高效的、最新的、功能丰富的支持HTTP协议的客户端编程工具包，并且它支持HTTP协议最新的版本和建议  
-可以参考博客：[https://www.cnblogs.com/lzq198754/p/5780310.html]{https://www.cnblogs.com/lzq198754/p/5780310.html}
+可以参考博客：[https://www.cnblogs.com/lzq198754/p/5780310.html]
   
 ## jar包引入
 commons-httpclient是之前的jar包版本，现在已经停止更新，本httpclient替代。  
