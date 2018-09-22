@@ -162,4 +162,56 @@ public class TestIOStream {
   
 }  
 
+ByteArrayOutputStream和ByteArrayInputStream
+ByteArrayOutputStream类是在创建它的实例时，程序内部创建一个byte型别数组的缓冲区，然后利用ByteArrayOutputStream和ByteArrayInputStream的实例向数组中写入或读出byte型数据。在网络传输中我们往往要传输很多变量，我们可以利用ByteArrayOutputStream把所有的变量收集到一起，然后一次性把数据发送出去。具体用法如下:
+ByteArrayOutputStream:    可以捕获内存缓冲区的数据，转换成字节数组。
+ByteArrayInputStream: 可以将字节数组转化为输入流
+
+public static void testByteArrayInputStream() {
+        int a = 0;
+        int b = 1;
+        int c = 2;
+        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        bout.write(a);
+        bout.write(b);
+        bout.write(c);
+        byte[] buff = bout.toByteArray();
+        for (int i = 0; i < buff.length; i++)
+            System.out.println(buff[i]);
+        System.out.println("***********************");
+        ByteArrayInputStream bin = new ByteArrayInputStream(buff);
+        while ((b = bin.read()) != -1) {
+            System.out.println(b);
+        }
+    }
+    
+    
+DeepCopy
+/**
+     * 使用 ObjectInputStream和ObjectOutputStream实现 DeepCopy
+     *
+     * @param from
+     * @return
+     */
+    public static Object deepCopy(Object from) throws IOException, ClassNotFoundException {
+        Object obj = null;
+        // 将对象写成 Byte Array
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream out = new ObjectOutputStream(bos);
+        //将指定的对象写入 ObjectOutputStream。
+        out.writeObject(from);
+        out.flush();
+        out.close();
+
+        // 从流中读出 byte array，调用readObject函数反序列化出对象
+        ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bos.toByteArray()));
+        // 从 ObjectInputStream 读取对象。
+        obj = in.readObject();
+        return obj;
+    }
+
+
+
+
+
 其他参考博客：https://www.cnblogs.com/ylspace/p/8128112.html
