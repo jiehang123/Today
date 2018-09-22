@@ -74,7 +74,8 @@ public class TestFileWriter {
     }  
   
     /** 
-     * DOC 从文件里读取数据. 
+     * 使用FileReader读取文件内容
+     * 用来读取字符文件的便捷类。此类的构造方法假定默认字符编码和默认字节缓冲区大小都是适当的，要自己指定这些值，可以先在 FileInputStream 上构造一个 InputStreamReader
      *  
      * @throws FileNotFoundException 
      * @throws IOException 
@@ -91,9 +92,25 @@ public class TestFileWriter {
         reader.close();// 关闭输入流，释放连接  
         System.out.println(str);  
     }  
+    
+    /**
+     * 使用InputStreamReader读取文件内容
+     */
+    public static void testInputStreamReader() throws IOException {
+        File file = new File("C:\\Users\\jiehang\\Desktop\\test.sql");
+        StringBuffer stringBuffer = new StringBuffer();
+        Reader inputStreadReader = new InputStreamReader(new FileInputStream(file));
+        char[] c = new char[1024];
+        int len;
+        while ((len = inputStreadReader.read(c)) != -1) {
+            stringBuffer.append(c, 0, len);
+        }
+        System.out.println(stringBuffer.toString());
+        inputStreadReader.close();
+    }
   
     /** 
-     * DOC 往文件里写入数据. 
+     * 使用FileWriter往文件里写入数据. 
      *  
      * @throws IOException 
      */  
