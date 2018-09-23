@@ -1,6 +1,6 @@
-### Executor、ExecutorService、Executors、Callable、Future与FutureTask  
+# Executor、ExecutorService、Executors、Callable、Future与FutureTask  
 
-##1. 引子
+## 1. 引子
 初学Java多线程，常使用Thread与Runnable创建、启动线程。如下例:
 ```
 Thread t1 = new Thread(new Runnable() {
