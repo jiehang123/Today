@@ -25,14 +25,14 @@
 首先要明白消息被生产和消费的步骤
 发送消息的基本步骤：
   (1)、创建连接使用的工厂类JMS ConnectionFactory 
-  (2)、使用管理对象JMS ConnectionFactory建立连接Connection，并启动
+  (2)、使用管理对象JMS ConnectionFactory建立连接Connection（不需要调用connection.start()方法启动）
   (3)、使用连接Connection 建立会话Session 
   (4)、使用会话Session和管理对象Destination创建消息生产者MessageSender 
   (5)、使用消息生产者MessageSender发送消息
 
 消息接收者接收消息的步骤
   (1)、创建连接使用的工厂类JMS ConnectionFactory 
-  (2)、使用管理对象JMS ConnectionFactory建立连接Connection，并启动
+  (2)、使用管理对象JMS ConnectionFactory建立连接Connection（需要调用connection.start()方法启动）
   (3)、使用连接Connection 建立会话Session 
   (4)、使用会话Session和管理对象Destination创建消息接收者MessageReceiver 
   (5)、使用消息接收者MessageReceiver接受消息，需要用setMessageListener将MessageListener接口绑定到MessageReceiver消息接收者必须实现了MessageListener接口，需要定义onMessage事件方法
@@ -180,7 +180,8 @@ public class ActiveMqSenderAndReceiver {
 	private static void sendMessage() throws JMSException, InterruptedException {
 		ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(ACTIVEMQ_HOST);
 		Connection connection = connectionFactory.createConnection();
-		connection.start();
+		// send消息的时候可以不调用 connection.start()，receive的时候必须调用
+		//connection.start();
 		Session session = connection.createSession(Boolean.TRUE, Session.AUTO_ACKNOWLEDGE);
 		Destination destination = session.createQueue(QUEUE_NAME);
 		MessageProducer producer = session.createProducer(destination);
