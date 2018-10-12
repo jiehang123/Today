@@ -2,8 +2,8 @@
 
 ## 容器的基本实现
 * 封装资源文件
->> * 对资源文件的编码进行处理 
->> * 获取输入流。从Resource中获取对应的InputStream并构造InputSource。  
+> * 对资源文件的编码进行处理 
+> * 获取输入流。从Resource中获取对应的InputStream并构造InputSource。  
 * 获取对XML文件的验证模式(DTD或者是XSD)
 * 加载XML并得到对应的Document
 * 根据Document解析及注册BeanDefinition
