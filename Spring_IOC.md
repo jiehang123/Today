@@ -55,7 +55,7 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 }
 ```
 documentReader.registerBeanDefinitions(doc, createReaderContext(resource))
-上面的方法会从doc中获取到跟元素对象，然后开始遍历元素根元素root
+上面的方法会从doc中获取到根元素对象，然后开始遍历根元素root
 ```
 public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocumentReader {
   protected void parseBeanDefinitions(Element root, BeanDefinitionParserDelegate delegate) {
