@@ -7,6 +7,7 @@
 * 获取对XML文件的验证模式(DTD或者是XSD)
 * 加载XML并得到对应的Document
 * 根据Document解析及注册BeanDefinition
+
 ```
 public class XmlBeanFactory extends DefaultListableBeanFactory {
 
@@ -46,7 +47,7 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
   }
   
   public int registerBeanDefinitions(Document doc, Resource resource) throws BeanDefinitionStoreException {
-    // 这里创建的是 DefaultBeanDefinitionDocumentReader 对象
+    // 这里创建的是 DefaultBeanDefinitionDocumentReader 对象，它的作用是读取Document并注册BeanDefinition
     BeanDefinitionDocumentReader documentReader = createBeanDefinitionDocumentReader();
     // 这一步是核心，就是解析Document对象
     documentReader.registerBeanDefinitions(doc, createReaderContext(resource));
