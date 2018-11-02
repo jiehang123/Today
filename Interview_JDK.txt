@@ -1,0 +1,8 @@
+常见面试题：
+1、Integer与int比较的问题：
+  1) 无论如何，Integer与new Integer不会相等。不会经历拆箱过程，因为它们存放内存的位置不一样。
+  2) 两个都是非new出来的Integer，如果数在-128到127之间，则是true,否则为false。
+  3) 两个都是new出来的,则为false。
+  4) int和integer(new或非new)比较，都为true，因为会把Integer自动拆箱为int，其实就是相当于两个int类型比较。
+  
+2、
