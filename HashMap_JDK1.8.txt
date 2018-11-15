@@ -1,5 +1,6 @@
 本文主题：Java8 HashMap源码解析(转载)
 原博地址：https://blog.csdn.net/qazwyc/article/details/76686915
+加上另外一篇博客讲解：https://www.jianshu.com/p/8e668a010f43
 
 概述
 在官方文档中是这样描述HashMap的：
