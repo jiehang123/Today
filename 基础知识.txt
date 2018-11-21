@@ -1,0 +1,91 @@
+1. 什么是CAS
+compare and swap，比较替换，假设三个操作数：内存值，预期值和要修改的值，只有当内存值与预期值相等时，才会将内存值修改为要修改的值，否则不进行任何操作。
+
+2. Class.forName和ClassLoader，newInstance和new Object()的区别？
+前两个都是对类进行加载
+1)Class.forName(className)实际执行的是Class.forName(className, true, classloader), 第二个参数表示是否需要初始化类，所以它除了将class加载到JVM中之外，还会对类进行解释，执行其中的静态块代码
+2)ClassLoader.loadClass(className)实际上执行的是ClassLoader.loadClass(className, false)，第二个参数表示是否需要初始化类，所以它只会加载类。
+3)new Object()就是生成一个实例，new之前该类可以没有被加载，new的时候JVM会自己加载；new的时候可以调用任意的构造方法。
+4)调用newInstance()前必须保证1.该类已经被加载到JVM中，2该类已经链接了，而这两步正是上面两个方法完成的;其实可以理解为，newInstance把new分解成了两步(加载和实例化)；此外newInstance只能调用无参构造方法。
+
+3. Java中的队列都有哪些，有什么区别。
+不阻塞队列 
+LinkedList：底层使用双向链表结构实现。可以作为队列，栈和双端队列
+PriorityQueue：维护了一个有序列表。加入到 Queue 中的元素根据它们的天然排序（通过其 java.util.Comparable 实现）或者根据传递给构造函数的 java.util.Comparator 实现来定位。
+ConcurrentLinkedQueue：基于链接节点的、线程安全的队列。并发访问不需要同步。因为它在队列的尾部添加元素并从头部删除它们，所以只要不需要知道队列的大小，ConcurrentLinkedQueue 对公共集合的共享访问就可以工作得很好。收集关于队列大小的信息会很慢，需要遍历队列。
+阻塞队列
+ArrayBlockingQueue ：一个由数组支持的有界队列。
+LinkedBlockingQueue ：一个由链接节点支持的可选有界队列。
+PriorityBlockingQueue ：一个由优先级堆支持的无界优先级队列。
+DelayQueue ：一个由优先级堆支持的、基于时间的调度队列。
+SynchronousQueue ：一个利用 BlockingQueue 接口的简单聚集（rendezvous）机制。
+
+4. JVM中的类加载机制; 延伸的问题：实例化一个对象经历的所有步骤
+分为五个过程：加载-->验证-->准备-->解析-->初始化-->使用-->卸载; 其中验证，准备和解析三步合称为连接
+
+5. Java的内存模型以及GC算法
+
+6. 线程池的状态？以及线程在哪些时候他们处于这些状态？
+Thread中用枚举State来表示线程的状态，分别是：
+NEW(新建状态):new出来(线程被创建)之后就处于新建状态
+RUNNABLE(就绪状态):线程的start()方法被调用之后，就处于可运行状态，只等待获取CPU时间片的使用权。即处于RUNNABLE状态的线程除了没有CPU之外，其他运行必须的资源都已经准备就绪。
+BLOCKED(阻塞状态):一个线程因为等待临界区的锁被阻塞产生的状态 , 因为 Lock 或者 synchronize 关键字产生的状态；注意IO阻塞的时候可不是BLOCKED状态而是运行或者就绪状态啊。这里的阻塞状态就是因为共享资源被锁而引起的。
+WAITING(无限期等待):处于这种状态的线程不会被分配CPU执行时间，它们要等待被其它线程显示的唤醒。这种状态通常是指一个线程拥有对象锁后进入到相应的代码区域后，调用相应的“锁对象”的wait()方法操作后产生的一种结果。变相的实现还有LockSupport.park()、Thread.join()等，它们也是在等待另一个事件的发生，也就是描述了等待的意思。
+	注意：
+	LockSupport.park(Object blocker) 会挂起当前线程，参数blocker是用于设置当前线程的“volatile Object parkBlocker 成员变量”
+	parkBlocker 是用于记录线程是被谁阻塞的，可以通过LockSupport.getBlocker()获取到阻塞的对象，用于监控和分析线程用的。
+	“阻塞”与“等待”的区别：
+	（1）“阻塞”状态是等待着获取到一个排他锁，进入“阻塞”状态都是被动的，离开“阻塞”状态是因为其它线程释放了锁，不阻塞了；
+	（2）“等待”状态是在等待一段时间 或者 等待唤醒动作的发生，进入“等待”状态是主动的
+	如主动调用Object.wait()，如无法获取到ReentraantLock，主动调用LockSupport.park()，如主线程主动调用 subThread.join()，让主线程等待子线程执行完毕再执行
+	离开“等待”状态是因为其它线程发生了唤醒动作或者到达了等待时间
+TIMED_WAITING(有限期等待):
+处于这种状态的线程也不会被分配CPU执行时间，不过无需等待被其它线程显示的唤醒，在一定时间之后它们会由系统自动的唤醒。
+	以下方法会让线程进入TIMED_WAITING限期等待状态：
+	（1）Thread.sleep()方法
+	（2）设置了timeout参数的Object.wait()方法
+	（3）设置了timeout参数的Thread.join()方法
+	（4）LockSupport.parkNanos()方法
+	（5）LockSupport.parkUntil()方法
+TERMINATED(结束):已终止线程的线程状态，线程已经结束执行。换句话说，run()方法走完了，线程就处于这种状态。
+
+本题补充知识点：
+无参thread.join():在parent中调用无参sub.join()会使parent线程进入WAIT状态，直到sub线程执行完，但是如果parent锁住了一些资源，他也不会释放持有的资源。
+Thread.yield():会使线程从运行状态金瑞RUNNABLE状态。也就是让出CPU时间片，不过他可能立马又抢到时间片继续执行，也可能其他线程执行。javadoc里面说最好别使用它。
+我有一个疑惑Thread.sleep(0)和Thread.yield()有什么区别，我认为他们的作用都是触发操作系统立刻重新进行一次CPU的竞争啊。// TODO
+
+7. CountDownLatch、CyclicBarrier和Semaphore的作用和使用场景
+https://www.cnblogs.com/dolphin0520/p/3920397.html
+CountDownLatch类似计数器。它有两个比较重要的方法await(),调用此方法的线程会挂起，直到count为0才继续执行(await还有一个重载的方法await(timeout, timeUnit))。countDown(),就是将count值减一。
+CyclicBarrier叫做回环栅栏。叫回环是因为当所有线程都释放以后，它可以重复利用。
+她的作用：用来挂起当前线程，直到所有线程都达到barrier之后再同时执行后续任务。
+Semaphore是信号量。用来控制同时访问的个数，通过acquire()来获取一个许可，如果没有就等待，而release()就是释放一个许可。
+
+本题补充点：CountDownLatch和CycliBarrier之间区别是什么？
+都能够实现线程之间的等待，只不过它们侧重点不同：
+CountDownLatch一般用于一个或者多个线程，等待其他一组线程完成操作，再继续执行。
+CycliBarrier一般用于一组线程之间相互等待，达到一个共同点，再继续执行。
+
+8. web.xml中servlet ,filter ,listener ,interceptor的作用与区别
+//TODO
+
+9. HashMap, HashTable, TreeMap, ConcurrentHashMap，是什么？底层数据结构？各有什么特点？
+HashMap是一个采用哈希表实现的键值对集合, 底层实现是数组+链表+红黑树，在存储和获取指定元素时，需要经过hash运算，得到目标元素在hash表中的位置，当出现hash冲突的时候，采用拉链法进行解决。
+key不能重复，value可以重复，可以允许一个key为null
+元素时无序的，而且顺序可能会随着结构变化而改变
+非线程安全的
+插入和获取的时间复杂度，基本为O(1),前提是要有适当的hash函数，让元素分布在均匀的位置上
+
+//TODO
+Treemap
+
+本题补充点：解决Hash冲突的方法有什么？
+开放定址法（线性探测再散列，二次探测再散列，伪随机探测再散列）
+再哈希法
+链地址法
+建立一个公共溢出区
+
+10. Tomcat参数和性能调优
+https://www.cnblogs.com/yanghua1012/p/5869192.html
+https://blog.csdn.net/lykangjia/article/details/52839347
+https://blog.csdn.net/samHuangLiang/article/details/79295496
