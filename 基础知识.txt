@@ -1,15 +1,15 @@
-1. 什么是CAS  
-compare and swap，比较替换，假设三个操作数：内存值，预期值和要修改的值，只有当内存值与预期值相等时，才会将内存值修改为要修改的值，否则不进行任何操作。  
+1. 什么是CAS
+compare and swap，比较替换，假设三个操作数：内存值，预期值和要修改的值，只有当内存值与预期值相等时，才会将内存值修改为要修改的值，否则不进行任何操作。
 
-2. Class.forName和ClassLoader，newInstance和new Object()的区别？  
-前两个都是对类进行加载  
-1)Class.forName(className)实际执行的是Class.forName(className, true, classloader), 第二个参数表示是否需要初始化类，所以它除了将class加载到JVM中之外，还会对类进行解释，执行其中的静态块代码  
-2)ClassLoader.loadClass(className)实际上执行的是ClassLoader.loadClass(className, false)，第二个参数表示是否需要初始化类，所以它只会加载类。  
-3)new Object()就是生成一个实例，new之前该类可以没有被加载，new的时候JVM会自己加载；new的时候可以调用任意的构造方法。  
-4)调用newInstance()前必须保证1.该类已经被加载到JVM中，2该类已经链接了，而这两步正是上面两个方法完成的;其实可以理解为，newInstance把new分解成了两步(加载和实例化)；此外newInstance只能调用无参构造方法。  
+2. Class.forName和ClassLoader，newInstance和new Object()的区别？
+前两个都是对类进行加载
+1)Class.forName(className)实际执行的是Class.forName(className, true, classloader), 第二个参数表示是否需要初始化类，所以它除了将class加载到JVM中之外，还会对类进行解释，执行其中的静态块代码
+2)ClassLoader.loadClass(className)实际上执行的是ClassLoader.loadClass(className, false)，第二个参数表示是否需要初始化类，所以它只会加载类。
+3)new Object()就是生成一个实例，new之前该类可以没有被加载，new的时候JVM会自己加载；new的时候可以调用任意的构造方法。
+4)调用newInstance()前必须保证1.该类已经被加载到JVM中，2该类已经链接了，而这两步正是上面两个方法完成的;其实可以理解为，newInstance把new分解成了两步(加载和实例化)；此外newInstance只能调用无参构造方法。
 
-3. Java中的队列都有哪些，有什么区别。  
-不阻塞队列   
+3. Java中的队列都有哪些，有什么区别。
+不阻塞队列 
 LinkedList：底层使用双向链表结构实现。可以作为队列，栈和双端队列
 PriorityQueue：维护了一个有序列表。加入到 Queue 中的元素根据它们的天然排序（通过其 java.util.Comparable 实现）或者根据传递给构造函数的 java.util.Comparator 实现来定位。
 ConcurrentLinkedQueue：基于链接节点的、线程安全的队列。并发访问不需要同步。因为它在队列的尾部添加元素并从头部删除它们，所以只要不需要知道队列的大小，ConcurrentLinkedQueue 对公共集合的共享访问就可以工作得很好。收集关于队列大小的信息会很慢，需要遍历队列。
@@ -100,3 +100,92 @@ ThreadLocal仅仅是作为一个变量访问的入口
 12. volatile的工作原理?
 volatile关键字就是Java中提供的另一种解决可见性和有序性问题的方案。对于原子性，需要强调一点，也是大家容易误解的一点：对volatile变量的单次读/写操作可以保证原子性的，如long和double类型变量，但是并不能保证i++这种操作的原子性，因为本质上i++是读、写两次操作。
 volatile可以禁止指令重排序，保证内存可见性
+下面是一个指令重排序的例子
+public class SimpleHappenBefore {
+    private static int a = 0;
+    private static boolean flag = false;
+    public static void main(String[] args) throws InterruptedException {
+        for (int i = 0; i < 1000; i++) {
+
+            ThreadA threadA = new ThreadA();
+            ThreadB threadB = new ThreadB();
+
+            threadA.start();
+            threadB.start();
+
+            threadA.join();
+            threadB.join();
+            
+            a = 0;
+            flag = false;
+        }
+    }
+    static class ThreadA extends Thread {
+        public void run() {
+            a = 1;
+            flag = true;
+        }
+    }
+    static class ThreadB extends Thread {
+        public void run() {
+            if (flag) {
+                a = a * 1;
+                System.out.println("YES");
+            }
+            if (a == 0) {
+                System.out.println("ha,a==0");
+            }
+        }
+    }
+}
+
+13. cglib和jdk动态代理的区别？
+两种方式都使用了动态生成字节码技术。
+JDK动态代理只能对实现了接口的类生成代理，而不能针对类。 implements InvocationHandler
+CGLIB是针对类实现代理，主要是对指定的类生成一个子类，覆盖其中的方法（继承）。implements MethodInterceptor
+补充：
+Spring在选择用JDK还是CGLiB的依据：
+	(1)当Bean实现接口时，Spring就会用JDK的动态代理
+	(2)当Bean没有实现接口时，Spring使用CGlib是实现
+	(3)可以强制使用CGlib（在spring配置中加入<aop:aspectj-autoproxy proxy-target-class="true"/>）
+使用CGLib实现动态代理，CGLib底层采用ASM字节码生成框架，使用字节码技术生成代理类，cglig代理可以直接定位到生成的class中的被调用方法，比使用Java反射效率要高。唯一需要注意的是，CGLib不能对声明为final的方法进行代理，因为CGLib原理是动态生成被代理类的子类。
+
+13. 分析代码在JDK1.8中的输出：
+String string_2 = new StringBuilder("Clas").append("s").toString();
+System.out.println(string_2.intern() == string_2); //true
+
+String string_3 = new StringBuilder("ja").append("va").toString();
+System.out.println(string_3.intern() == string_3); //false
+
+String s1 = new String("2");
+s1.intern();
+String s2 = "2";
+System.out.println(s1 == s2); //false
+
+String s3 = new String("1") + new String("1");
+s3.intern();
+String s4 = "11";
+System.out.println(s3 == s4); //true
+
+String s5 = new String("3") + "3";
+s3.intern();
+String s6 = "33";
+System.out.println(s3 == s4); //true
+
+
+14. Dubbo中zookeeper做注册中心，如果注册中心集群都挂掉，发布者和订阅者之间还能通信么？
+可以，启动dubbo时，消费者会从zk拉取注册的生产者的地址接口等数据，缓存在本地。每次调用时，按照本地存储的地址进行调用。倒是无法从注册中心去同步最新的服务列表，在注册中心全部挂掉后增加新的提供者，则不能被消费者发现.
+1). 监控中心宕掉不影响使用，只是丢失部分采样数据
+2). 数据库宕掉后，注册中心仍能通过缓存提供服务列表查询，但不能注册新服务
+3). 注册中心对等集群，任意一台宕掉后，将自动切换到另一台
+4). 注册中心全部宕掉后，服务提供者和服务消费者仍能通过本地缓存通讯
+5). 服务提供者无状态，任意一台宕掉后，不影响使用
+6). 服务提供者全部宕掉后，服务消费者应用将无法使用，并无限次重连等待服务提供者恢复
+
+15. 你知道哪些或者你们线上使用什么GC策略？它有什么优势，适用于什么场景？
+
+
+16. TCP三次握手
+（1）第一次握手：Client将标志位SYN置为1，随机产生一个值seq=J，并将该数据包发送给Server，Client进入SYN_SENT状态，等待Server确认。
+（2）第二次握手：Server收到数据包后由标志位SYN=1知道Client请求建立连接，Server将标志位SYN和ACK都置为1，ack=J+1，随机产生一个值seq=K，并将该数据包发送给Client以确认连接请求，Server进入SYN_RCVD状态。
+（3）第三次握手：Client收到确认后，检查ack是否为J+1，ACK是否为1，如果正确则将标志位ACK置为1，ack=K+1，并将该数据包发送给Server，Server检查ack是否为K+1，ACK是否为1，如果正确则连接建立成功，Client和Server进入ESTABLISHED状态，完成三次握手，随后Client与Server之间可以开始传输数据了。
