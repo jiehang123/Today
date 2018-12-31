@@ -1,0 +1,124 @@
+Spring Boot面试题：
+
+什么是Spring Boot?
+Spring Boot是Spring组织下的一个开源子项目
+是 Spring 组件一站式处理方案
+简化了使用Spring的难度，省去了很多繁琐的配置
+提供了各种启动器，避免了手动导包产生jar包冲突
+开发者能快速上手
+
+Spring Boot有哪些特点？
+减少开发和测试时间。
+使用JavaConfig，避免使用XML。
+避免大量的Maven导入和各种版本冲突。
+通过提供默认值和自动配置功能可以快速开发。
+没有单独的Web服务器需要。这意味着你不再需要启动Tomcat，Glassfish或其他任何东西。
+需要更少的配置 因为没有web.xml文件。只需添加用@Configuration注释的类，然后添加用@Bean注释的方法，Spring将自动加载对象并像以前一样对其进行管理。您甚至可以将@Autowired添加到bean方法中，以使Spring自动装入需要的依赖关系中。
+基于环境的配置 使用这些属性，您可以将您正在使用的环境传递到应用程序：-Dspring.profiles.active = {enviornment}。在加载主应用程序属性文件后，Spring将在（application{environment} .properties）中加载后续的应用程序属性文件。
+
+什么是JavaConfig?
+JavaConfig就是使用注释来描述Bean配置的组件。JavaConfig可以看成一个XML文件，只不过是使用Java编写的
+使用XML来配置Bean所能实现的功能，通过JavaConfig同样可以很好的实现。
+
+如何重新加载Spring Boot上的更改，而无需重新启动服务器？
+添加spring-boot-devtools依赖
+<dependency>
+	<groupId>org.springframework.boot</groupId>
+	<artifactId>spring-boot-devtools</artifactId>
+	<optional>true</optional>
+</dependency>
+
+Spring Boot中的监视器是什么？https://www.cnblogs.com/ye-hcj/p/9614109.html
+actuator是spring boot中的重要功能之一。Spring boot监视器可帮助访问生产环境中正在运行的应用程序的当前状态。
+监视器模块公开了一组可直接作为HTTP URL访问的REST端点来检查状态。
+可以监视三大类的原生断点：应用配置类、度量指标类和操作控制类。
+常见的一些内置监视器有：
+actuator/health         查看程序健康信息
+actuator/metrics        查看各类度量指标，比如内存信息、线程信息、垃圾收集信息等
+actuator/beans          列出程序中的Spring bean
+actuator/env            列出程序运行所有信息
+actuator/trace			返回基本的HTTP跟踪信息
+
+2.0之前原生端点都是暴露的，2。0之后actuator有修改，见如下说明
+#--------------关于actuator暴露端点的配置（version: Spring-Boot-2.0）-----------------
+# 说明：
+#   1.要通过actuator暴露端点，必须同时是启用（enabled）和暴露（exposed）的
+#   2.所有除了/health和/info的端点，默认都是不暴露的
+#   3.所有除了/shutdown的端点，默认都是启用的
+# PS.生产环境由于安全性的问题，注意不要暴露敏感端点
+# 设置暴露所有端点
+management.endpoints.web.exposure.include=*
+# 设置单个端点（/shutdown）可用
+#management.endpoint.shutdown.enabled=true
+# 设置暴露所有端点，除了env
+#management.endpoints.web.exposure.include=*
+#management.endpoints.web.exposure.exclude=env
+
+如何理解Spring Boot中的Starters?
+Starters可以理解为启动器
+它包含了一系列可以集成到应用里面的依赖包
+你可以一站式集成 Spring 及其余技术，而不需要四处找示例代码和依赖包。
+Starters包含了许多项目中需要用到的依赖，它们能快速持续的运行，都是一系列得到支持的管理传递性依赖。
+常用starter:
+spring-boot-starter-web嵌入tomcat和webkaifa需要servlet与jsp支持
+spring-boot-starter-data-jpa数据库支持
+spring-boot-starter-data-redis数据库支持
+spring-boot-starter-data-solr solr支持
+mybatis-spring-boot-starter第三方的mybatis集成starter
+
+如何在Spring Boot中禁用Actuator端点安全性？
+
+如何实现Spring Boot应用程序的安全性？
+为了实现Spring Boot的安全性，我们使用 spring-boot-starter-security依赖项，并且必须添加安全配置。它只需要很少的代码。配置类将必须扩展WebSecurityConfigurerAdapter并覆盖其方法。
+
+
+如何使用Spring Boot实现分页和排序？
+使用Spring Boot实现分页非常简单。使用Spring Data-JPA可以实现将可分页的
+org.springframework.data.domain.Pageable
+传递给存储库方法。
+
+@SpringBootApplication是核心注解，相当于下面三个配置的功能：
+@SpringBootConfiguration：组合了 @Configuration 注解，实现配置文件的功能。
+@EnableAutoConfiguration：打开自动配置的功能，也可以关闭某个自动配置的选项，如关闭数据源自动配置功能： @SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })。
+@ComponentScan：Spring组件扫描。
+
+Spring Boot 自动配置原理是什么？
+注解 @EnableAutoConfiguration, @Configuration, @ConditionalOnClass 就是自动配置的核心，
+首先它得是一个配置文件，其次根据类路径下能否有这个类去自动配置。
+
+Spring Boot 有哪几种读取配置的方式？
+Spring Boot 可以通过 @PropertySource,@Value,@Environment, @ConfigurationProperties 来绑定变量，
+
+Spring Boot 支持哪些日志框架？推荐和默认的日志框架是哪个？
+Spring Boot 支持 Java Util Logging, Log4j2, Logback 作为日志框架，假如你使用 Starters 启动器，Spring Boot 将使用 Logback 作为默认日志框架，
+
+你如何了解 Spring Boot 配置加载顺序？
+Spring Boot 如何定义多套不同环境配置？
+Spring Boot 可以兼容老 Spring 项目吗，如何做？
+可以兼容，使用@ImportResource注解导入老 Spring 项目配置文件。
+
+Spring Boot 2.X 有什么新特性？与 1.X 有什么区别？
+https://mp.weixin.qq.com/s?__biz=MzI3ODcxMzQzMw==&amp;mid=2247486395&amp;idx=1&amp;sn=acad48d7672a796db39fa2d09dc59caf&amp;scene=21#wechat_redirect
+
+springboot有3中热部署方式：
+1.使用springloaded配置pom.xml文件，使用mvn springboot:run启动
+2.使用springloaded本地加载启动，配置jvm参数
+-javaagent:<jar包地址> -noverify
+3.使用devtools工具包，操作简单，但是每次需要重新部署
+http://www.360doc.com/content/18/0208/17/19179788_728638832.shtml
+
+
+1. SpringBoot常见注解
+@SpringBootApplication：包含了@ComponentScan、@Configuration和@EnableAutoConfiguration注解。其中@ComponentScan让spring Boot扫描到Configuration类并把它加入到程序上下文。
+@Configuration 等同于spring的XML配置文件；使用Java代码可以检查类型安全。
+@@EnableAutoConfiguration 让 Spring Boot 根据类路径中的 jar 包依赖为当前项目进行自动配置，例如，添加了 spring-boot-starter-web 依赖，会自动添加 Tomcat 和 Spring MVC 的依赖，那么 Spring Boot 会对 Tomcat 和 Spring MVC 进行自动配置。
+@ComponentScan 组件扫描，可自动发现和装配一些Bean。
+@RestController注解是@Controller和@ResponseBody的合集,表示这是个控制器bean,并且是将函数的返回值直 接填入HTTP响应体中,是REST风格的控制器。
+@Autowired自动导入。
+@PathVariable获取参数。
+@JsonBackReference解决嵌套外链问题。
+@RepositoryRestResourcepublic配合spring-boot-starter-data-rest使用。
+
+@ResponseBody 表示该方法的返回结果直接写入HTTP response body中，一般在异步获取数据时使用，用于构建RESTful的api。
+@RestController 等同于@ResponseBody和@Controller的合集。
+
