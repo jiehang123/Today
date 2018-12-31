@@ -189,3 +189,41 @@ System.out.println(s3 == s4); //true
 （1）第一次握手：Client将标志位SYN置为1，随机产生一个值seq=J，并将该数据包发送给Server，Client进入SYN_SENT状态，等待Server确认。
 （2）第二次握手：Server收到数据包后由标志位SYN=1知道Client请求建立连接，Server将标志位SYN和ACK都置为1，ack=J+1，随机产生一个值seq=K，并将该数据包发送给Client以确认连接请求，Server进入SYN_RCVD状态。
 （3）第三次握手：Client收到确认后，检查ack是否为J+1，ACK是否为1，如果正确则将标志位ACK置为1，ack=K+1，并将该数据包发送给Server，Server检查ack是否为K+1，ACK是否为1，如果正确则连接建立成功，Client和Server进入ESTABLISHED状态，完成三次握手，随后Client与Server之间可以开始传输数据了。
+ps：为什么是三次握手：https://blog.csdn.net/whyliyu/article/details/51078276
+
+同步集合与并发集合？
+同步集合可以简单地理解为通过synchronized来实现同步的集合。如果有多个线程调用同步集合的方法，它们将会串行执行。 
+Collections是为集合提供各种方便操作的工具类，通过它，可以实现集合排序、查找、替换、同步控制、设置不可变集合
+同步集合比如：Vector，HashTable
+并发集合是jdk5.0重要的特性，增加了并发包java.util.concurrent.*。Java内存模型、volatile变量及AbstractQueuedSynchronizer(简称AQS同步器)，是并发包众多实现的基础。
+常见的并发集合： 
+ConcurrentHashMap：线程安全的HashMap的实现 
+CopyOnWriteArrayList：线程安全且在读操作时无锁的ArrayList 
+CopyOnWriteArraySet：基于CopyOnWriteArrayList，不添加重复元素 
+ArrayBlockingQueue：基于数组、先进先出、线程安全，可实现指定时间的阻塞读写，并且容量可以限制 
+LinkedBlockingQueue：基于链表实现，读写各用一把锁，在高并发读写操作都多的情况下，性能优于ArrayBlockingQueue
+
+full gc排查：https://blog.csdn.net/wilsonpeng3/article/details/70064336
+Full GC的原因
+我们知道Full GC的触发条件大致情况有以下几种情况： 
+1. 程序执行了System.gc() //建议jvm执行fullgc，并不一定会执行 
+2. 执行了jmap -histo:live pid命令 //这个会立即触发fullgc 
+3. 在执行minor gc的时候进行的一系列检查，检查过程如下：
+	执行Minor GC的时候，JVM会检查老年代中最大连续可用空间是否大于了当前新生代所有对象的总大小。
+	如果大于，则直接执行Minor GC（这个时候执行是没有风险的）。
+	如果小于了，JVM会检查是否开启了空间分配担保机制，如果没有开启则直接改为执行Full GC。
+	如果开启了，则JVM会检查老年代中最大连续可用空间是否大于了历次晋升到老年代中的平均大小，如果小于则执行改为执行Full GC。
+	如果大于则会执行Minor GC，如果Minor GC执行失败则会执行Full GC
+GC的选择
+官方推荐，需要根据应用的实际情况进行选择。在选择之前必须要对应用的堆大小、收集频率进行估算。
+
+使用SerialGC的场景： 
+1、如果应用的堆大小在100MB以内。 
+2、如果应用在一个单核单线程的服务器上面，并且对应用暂停的时间无需求。 
+使用ParallelGC的场景: 
+如果需要应用在高峰期有较好的性能，但是对应用停顿时间无高要求（比如：停顿1s甚至更长）。 
+使用G1、CMS场景: 
+1、对应用的延迟有很高的要求。 
+2、如果内存大于6G请使用G1。
+	
+线上Gc故障排查：https://www.cnblogs.com/shengs/p/4945741.html
