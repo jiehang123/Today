@@ -1,17 +1,30 @@
 创建topic
-kafka-topics.bat --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic test
+kafka-topics.bat --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic JIE_TOPIC
+replication-factor表示副本数目(包括自己)
+partitions表示分区数(包括自己)
 
 查看所有topic
 kafka-topics.bat --list --zookeeper localhost:2181
 
 查看指定topic信息
-kafka-topics.bat --zookeeper localhost:2181 --describe --topic test
+kafka-topics.bat --zookeeper localhost:2181 --describe --topic JIE_TOPIC
 
 创建生产者
-kafka-console-producer.bat --broker-list localhost:9092 --topic test
+kafka-console-producer.bat --broker-list localhost:9092 --topic JIE_TOPIC
 
 创建消费者
-kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic test --from-beginning
+kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic JIE_TOPIC --from-beginning
 
 删除topic
-kafka-topics.bat --delete --zookeeper localhost:2181 --topic test
+kafka-topics.bat --delete --zookeeper localhost:2181 --topic JIE_TOPIC
+
+查看牟特topic的最大偏移量和最小偏移量 --time -1表示最大 --time -2表示最小
+kafka-run-class.bat kafka.tools.GetOffsetShell --topic JIE_TOPIC  --time -2 --broker-list localhost:9092 --partitions 0
+
+删除topic的步骤：
+1. 删除server.properties中指定的log.dirs文件夹中的JIE_TOPIC*文件夹
+2. 执行kafka-topics.bat --delete --zookeeper localhost:2181 --topic JIE_TOPIC
+3. 删除zk中的节点：
+ 3.1 rmr /brokers/topics/JIE_TOPIC
+ 3.2 rmr /config/topics/JIE_TOPIC
+ 3.3 rmr /admin/delete_topics/JIE_TOPIC
