@@ -1,0 +1,295 @@
+package com.fiberhome;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.util.List;
+import java.util.Vector;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class ConnectionPoolManager {
+    
+        /**
+         * 空闲连接集合
+         */
+        private List<Connection> freeConnection = new Vector<>();
+    
+        /**
+         * 活动连接集合
+         */
+        private List<Connection> activeConnection = new Vector<>();
+    
+        /**
+         * 连接数
+         */
+        private AtomicInteger connectCount = new AtomicInteger(0);
+    
+        /**
+         * 数据库配置信息
+         */
+        private DBProperties dbProperties = new DBProperties();
+    
+        public ConnectionPoolManager() {
+            this.init();
+        }
+    
+        /**
+         * 获取连接
+         *
+         * @return
+         * @throws Exception
+         */
+        public synchronized Connection getConnection() throws Exception {
+            Connection connection = null;
+            if (activeConnection.size() >= dbProperties.getMaxConnections()) {
+                //如果达到了最大连接，则等待 connTimeOut
+                System.out.println("当前活动连接已经达到了最大连接：" + activeConnection.size() + "，等待ing");
+                wait(dbProperties.getConnectionTimeOut());
+                connection = this.getConnection();
+            } else {
+                //如果未达到最大连接数，则返回 connection
+                if (freeConnection.size() > 0) {
+                    //如果有空闲连接
+                    System.out.println("当前空闲连接还有：" + freeConnection.size() + "，从空余连接池中获取连接");
+                    connection = freeConnection.remove(0);
+                } else {
+                    //没有空闲连接
+                    connection = this.newConnection();
+                    System.out.println("当前没有空闲连接，利用 JDBC 技术获取连接");
+                }
+                activeConnection.add(connection);
+            }
+            return connection;
+        }
+    
+        /**
+         * 释放连接
+         *
+         * @param connection
+         * @throws Exception
+         */
+        public synchronized void releaseConnection(Connection connection) throws Exception {
+            if (!isAvailable(connection)) {
+                return;
+            }
+            if (freeConnection.size() <= dbProperties.getMinConnections()) {
+                //如果当前连接小于最小连接数
+                System.out.println("当前空闲连接还有：" + freeConnection.size() + "，不大于 minConnections 配置：" + dbProperties.getMinConnections() + "，重新放入到空闲连接池中");
+                freeConnection.add(connection);
+            } else {
+                //如果大于最小连接数，则关闭
+                connection.close();
+                this.connectCount.decrementAndGet();
+                System.out.println("当前空闲连接还有：" + freeConnection.size() + "，大于 minConnections 配置：" + dbProperties.getMinConnections() + "，销毁连接");
+            }
+            activeConnection.remove(connection);
+            notifyAll();
+        }
+    
+        /**
+         * 初始化连接
+         */
+        private void init() {
+            Connection connection = null;
+            for (int i = 0; i < dbProperties.getInitConnections(); i++) {
+                connection = this.newConnection();
+                freeConnection.add(connection);
+            }
+            System.out.println("数据库连接池初始化完成：共有 " + freeConnection.size() + " 个连接");
+        }
+    
+        /**
+         * jdbc 获取连接
+         *
+         * @return
+         */
+        private Connection newConnection() {
+            try {
+                if (dbProperties == null) {
+                    return null;
+                }
+                Class.forName(dbProperties.getDriverName());
+                Connection connection = DriverManager.getConnection(dbProperties.getUrl(), dbProperties.getUserName(), dbProperties.getPassword());
+                connectCount.incrementAndGet();
+                System.out.println("从数据库中获取连接：" + connection + ",当前连接数：" + connectCount);
+                return connection;
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    
+        /**
+         * 判断连接是否可用
+         *
+         * @param connection
+         * @return
+         */
+        private boolean isAvailable(Connection connection) {
+            try {
+                if (connection == null || connection.isClosed()) {
+                    return false;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+    
+    }
+    
+    -------
+    
+    package com.fiberhome;
+
+public class DBProperties {
+    
+        private String driverName = "com.mysql.jdbc.Driver";
+    
+        private String url = "jdbc:mysql://localhost:3306/mp?useSSL=false";
+    
+        private String userName = "root";
+    
+        private String password = "root";
+    
+        /**
+         * 连接池名字
+         */
+        private String poolName = "database-pool-";
+    
+        /**
+         * 空闲池，最小连接数
+         */
+        private int minConnections = 5;
+    
+        /**
+         * 空闲池，最大连接数
+         */
+        private int maxConnections = 10;
+    
+        /**
+         * 初始化连接数
+         */
+        private int initConnections = 2;
+    
+        /**
+         * 重复获得连接的频率
+         */
+        private long connTimeOut = 1000;
+    
+        /**
+         * 连接超时时间，默认20分钟
+         */
+        private long connectionTimeOut = 1000 * 60 * 20;
+
+        public String getDriverName() {
+                return driverName;
+        }
+
+        public void setDriverName(String driverName) {
+                this.driverName = driverName;
+        }
+
+        public String getUrl() {
+                return url;
+        }
+
+        public void setUrl(String url) {
+                this.url = url;
+        }
+
+        public String getUserName() {
+                return userName;
+        }
+
+        public void setUserName(String userName) {
+                this.userName = userName;
+        }
+
+        public String getPassword() {
+                return password;
+        }
+
+        public void setPassword(String password) {
+                this.password = password;
+        }
+
+        public String getPoolName() {
+                return poolName;
+        }
+
+        public void setPoolName(String poolName) {
+                this.poolName = poolName;
+        }
+
+        public int getMinConnections() {
+                return minConnections;
+        }
+
+        public void setMinConnections(int minConnections) {
+                this.minConnections = minConnections;
+        }
+
+        public int getMaxConnections() {
+                return maxConnections;
+        }
+
+        public void setMaxConnections(int maxConnections) {
+                this.maxConnections = maxConnections;
+        }
+
+        public int getInitConnections() {
+                return initConnections;
+        }
+
+        public void setInitConnections(int initConnections) {
+                this.initConnections = initConnections;
+        }
+
+        public long getConnTimeOut() {
+                return connTimeOut;
+        }
+
+        public void setConnTimeOut(long connTimeOut) {
+                this.connTimeOut = connTimeOut;
+        }
+
+        public long getConnectionTimeOut() {
+                return connectionTimeOut;
+        }
+
+        public void setConnectionTimeOut(long connectionTimeOut) {
+                this.connectionTimeOut = connectionTimeOut;
+        }
+}
+
+------
+
+package com.fiberhome;
+
+import java.sql.Connection;
+
+public class TestThreadPool {
+
+    public static void main(String[] args) {
+        final ConnectionPoolManager connectionPoolManager = new ConnectionPoolManager();
+        for (int i = 0; i < 15; i++) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        for (int y = 0; y < 10; y++) {
+                            Connection connection = connectionPoolManager.getConnection();
+                            Thread.sleep(1);
+                            connectionPoolManager.releaseConnection(connection);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }, "用户线程：" + i).start();
+        }
+    }
+
+}
+
+https://blog.csdn.net/masteryourself/article/details/84540453
+others: https://blog.csdn.net/qq_35393693/article/details/80555962
